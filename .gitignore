@@ -16,3 +16,5 @@ target/
 .DS_Store
 Thumbs.db
 
+test-summary.md
+test-multi-crawler-setup.sh
