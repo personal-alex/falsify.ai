@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>ai.falsify</groupId>
+        <artifactId>manager-parent</artifactId>
+        <version>1.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>crawler-common</artifactId>
+    <name>Crawler Common</name>
+    <description>Shared utilities and services for all crawler implementations</description>
+
+    <dependencies>
+        <!-- Quarkus Core -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-arc</artifactId>
+        </dependency>
+        
+        <!-- Configuration -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-config-yaml</artifactId>
+        </dependency>
+        
+        <!-- Redis -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-redis-client</artifactId>
+        </dependency>
+        
+        <!-- Database -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-hibernate-orm-panache</artifactId>
+        </dependency>
+        
+        <!-- Validation -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-hibernate-validator</artifactId>
+        </dependency>
+        
+        <!-- JSON Processing -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-rest-jackson</artifactId>
+        </dependency>
+        
+        <!-- JSoup for HTML parsing -->
+        <dependency>
+            <groupId>org.jsoup</groupId>
+            <artifactId>jsoup</artifactId>
+            <version>1.18.3</version>
+        </dependency>
+        
+        <!-- Testing -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-junit5</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.rest-assured</groupId>
+            <artifactId>rest-assured</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>0.8.12</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

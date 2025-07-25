@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>בן כספית - מעריב - עמוד עם פגינציה</title>
+</head>
+<body>
+    <div class="main-content">
+        <section class="four-articles-in-row">
+            <div class="article-item">
+                <a href="https://www.maariv.co.il/Ben-Caspit/page2-article-1" title="מאמר ראשון בעמוד שני">
+                    <h3>מאמר ראשון בעמוד שני</h3>
+                </a>
+            </div>
+            <div class="article-item">
+                <a href="https://www.maariv.co.il/Ben-Caspit/page2-article-2" title="מאמר שני בעמוד שני">
+                    <h3>מאמר שני בעמוד שני</h3>
+                </a>
+            </div>
+        </section>
+        
+        <!-- Different types of pagination buttons -->
+        <div class="pagination-section">
+            <a href="#" class="next-page">הבא</a>
+            <button class="show-more-btn">הצג עוד</button>
+        </div>
+    </div>
+    
+    <script>
+        // Simulate dynamic content loading
+        let pageHeight = 1000;
+        
+        function simulateInfiniteScroll() {
+            if (window.scrollY + window.innerHeight >= document.body.scrollHeight - 100) {
+                // Add more content
+                const newSection = document.createElement('section');
+                newSection.className = 'four-articles-in-row';
+                newSection.innerHTML = `
+                    <div class="article-item">
+                        <a href="https://www.maariv.co.il/Ben-Caspit/infinite-scroll-article" title="מאמר מגלילה אינסופית">
+                            <h3>מאמר מגלילה אינסופית</h3>
+                        </a>
+                    </div>
+                `;
+                document.querySelector('.main-content').appendChild(newSection);
+                pageHeight += 500;
+            }
+        }
+        
+        window.addEventListener('scroll', simulateInfiniteScroll);
+        
+        // Override scrollHeight for testing
+        Object.defineProperty(document.body, 'scrollHeight', {
+            get: function() { return pageHeight; }
+        });
+    </script>
+</body>
+</html>
