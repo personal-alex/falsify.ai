@@ -1,68 +1,127 @@
-# crawler-manager
+# Crawler Manager
 
-This project uses Quarkus, the Supersonic Subatomic Java Framework.
+A web-based management interface for monitoring and controlling web crawler instances. Built with Quarkus backend and Vue.js 3 + PrimeVue frontend.
 
-If you want to learn more about Quarkus, please visit its website: <https://quarkus.io/>.
+## Architecture
 
-## Running the application in dev mode
+- **Backend**: Quarkus 3.19.4 with WebSocket and REST support
+- **Frontend**: Vue.js 3 with TypeScript, PrimeVue UI components
+- **Build System**: Maven with integrated frontend build via Vite
+- **Real-time Updates**: WebSocket connections for live status updates
 
-You can run your application in dev mode that enables live coding using:
+## Development Setup
 
-```shell script
-./mvnw quarkus:dev
+### Prerequisites
+
+- Java 21+
+- Maven 3.8+
+- Node.js 18+ and npm (for frontend development)
+
+### Quick Start
+
+Use the development script to start both backend and frontend:
+
+```bash
+./scripts/dev-start.sh
 ```
 
-> **_NOTE:_**  Quarkus now ships with a Dev UI, which is available in dev mode only at <http://localhost:8080/q/dev/>.
+This will start:
+- Quarkus backend at http://localhost:8082
+- Vue.js frontend at http://localhost:5173
+- Quarkus Dev UI at http://localhost:8082/q/dev/
 
-## Packaging and running the application
+### Manual Development Mode
 
-The application can be packaged using:
-
-```shell script
-./mvnw package
+**Backend only:**
+```bash
+mvn quarkus:dev
 ```
 
-It produces the `quarkus-run.jar` file in the `target/quarkus-app/` directory.
-Be aware that it’s not an _über-jar_ as the dependencies are copied into the `target/quarkus-app/lib/` directory.
-
-The application is now runnable using `java -jar target/quarkus-app/quarkus-run.jar`.
-
-If you want to build an _über-jar_, execute the following command:
-
-```shell script
-./mvnw package -Dquarkus.package.jar.type=uber-jar
+**Frontend only:**
+```bash
+cd frontend
+npm install
+npm run dev
 ```
 
-The application, packaged as an _über-jar_, is now runnable using `java -jar target/*-runner.jar`.
+## Production Build
 
-## Creating a native executable
+Use the production build script:
 
-You can create a native executable using:
-
-```shell script
-./mvnw package -Dnative
+```bash
+./scripts/build-prod.sh
 ```
 
-Or, if you don't have GraalVM installed, you can run the native executable build in a container using:
+Or manually:
 
-```shell script
-./mvnw package -Dnative -Dquarkus.native.container-build=true
+```bash
+mvn clean package
 ```
 
-You can then execute your native executable with: `./target/crawler-manager-1.0.0-SNAPSHOT-runner`
+This will:
+1. Install Node.js and npm dependencies
+2. Build the Vue.js frontend
+3. Copy frontend assets to Quarkus resources
+4. Package the complete application
 
-If you want to learn more about building native executables, please consult <https://quarkus.io/guides/maven-tooling>.
+Run the production build:
+```bash
+java -jar target/quarkus-app/quarkus-run.jar
+```
+
+## Testing
+
+Run all tests:
+```bash
+./scripts/test.sh
+```
+
+Or run tests separately:
+```bash
+# Backend tests
+mvn test
+
+# Frontend tests
+cd frontend && npm run test
+```
+
+## Project Structure
+
+```
+crawler-manager/
+├── src/main/java/          # Quarkus backend code
+├── src/main/resources/     # Backend resources & built frontend assets
+├── frontend/               # Vue.js frontend source
+│   ├── src/               # Vue components and TypeScript code
+│   ├── package.json       # Frontend dependencies
+│   └── vite.config.ts     # Frontend build configuration
+├── scripts/               # Build and development scripts
+├── pom.xml               # Maven configuration with frontend integration
+└── README.md
+```
+
+## Configuration
+
+The application is configured via `src/main/resources/application.properties`:
+
+- **Server**: Runs on port 8082
+- **CORS**: Configured for frontend development
+- **Database**: PostgreSQL connection
+- **Redis**: For caching and real-time updates
+- **Crawler Instances**: Configured crawler endpoints
+
+## Features (Planned)
+
+- Real-time crawler health monitoring
+- Metrics visualization with charts
+- Crawl job triggering and monitoring
+- Job history and status tracking
+- Notification system for events
+- Responsive design for mobile devices
 
 ## Related Guides
 
-- REST ([guide](https://quarkus.io/guides/rest)): A Jakarta REST implementation utilizing build time processing and Vert.x. This extension is not compatible with the quarkus-resteasy extension, or any of the extensions that depend on it.
-- REST Jackson ([guide](https://quarkus.io/guides/rest#json-serialisation)): Jackson serialization support for Quarkus REST. This extension is not compatible with the quarkus-resteasy extension, or any of the extensions that depend on it
-- JDBC Driver - PostgreSQL ([guide](https://quarkus.io/guides/datasource)): Connect to the PostgreSQL database via JDBC
-
-## Provided Code
-
-### REST
-
-Easily start your REST Web Services
-
-[Related guide section...](https://quarkus.io/guides/getting-started-reactive#reactive-jax-rs-resources)
+- [Quarkus REST](https://quarkus.io/guides/rest)
+- [Quarkus WebSockets](https://quarkus.io/guides/websockets)
+- [Vue.js 3](https://vuejs.org/guide/)
+- [PrimeVue](https://primevue.org/)

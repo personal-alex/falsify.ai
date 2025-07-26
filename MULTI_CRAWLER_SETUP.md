@@ -12,39 +12,64 @@ Each crawler operates independently with its own configuration, Redis key space,
 
 ## Quick Start
 
-### 1. Start Both Crawlers Automatically
+### Available Scripts
 
+#### 1. Complete Development Environment
 ```bash
-# Start both crawlers with a single command
+# Start all services: manager + crawlers + frontend
+./run-all-services.sh
+```
+
+#### 2. Backend Services Only
+```bash
+# Start manager + crawlers (no frontend)
+./run-crawlers-with-manager.sh
+```
+
+#### 3. Crawlers Only
+```bash
+# Start both crawlers only
 ./run-both-crawlers.sh
 ```
 
-This script will:
-- ✅ Check port availability
-- 🚀 Start both crawlers on different ports
-- 📋 Create separate log files
-- 🛑 Handle graceful shutdown with Ctrl+C
+#### 4. Manager Only
+```bash
+# Start manager with frontend
+cd crawler-manager
+./scripts/dev-start.sh
+```
+
+### Script Features
+
+All scripts provide:
+- ✅ Port conflict detection
+- ✅ Separate debug ports (no JDWP conflicts)
+- 🚀 Automatic service startup
+- 📋 Individual log files
+- 🛑 Graceful shutdown with Ctrl+C
+- 📊 Process monitoring
 
 ### 2. Start Crawlers Manually
 
 If you prefer manual control, use separate terminal windows:
 
 ```bash
-# Terminal 1: Start crawler-caspit
-mvn quarkus:dev -pl crawler-caspit
+# Terminal 1: Start crawler-caspit (debug port 5005)
+mvn quarkus:dev -pl crawler-caspit -Ddebug=5005
 
-# Terminal 2: Start crawler-drucker  
-mvn quarkus:dev -pl crawler-drucker
+# Terminal 2: Start crawler-drucker (debug port 5006)
+mvn quarkus:dev -pl crawler-drucker -Ddebug=5006
 ```
 
 ## Configuration Details
 
 ### Port Assignments
 
-| Crawler | Port | URL |
-|---------|------|-----|
-| crawler-caspit | 8080 | http://localhost:8080 |
-| crawler-drucker | 8081 | http://localhost:8081 |
+| Crawler | HTTP Port | Debug Port | URL |
+|---------|-----------|------------|-----|
+| crawler-caspit | 8080 | 5005 | http://localhost:8080 |
+| crawler-drucker | 8081 | 5006 | http://localhost:8081 |
+| crawler-manager | 8082 | 5007 | http://localhost:8082 |
 
 ### Redis Configuration
 
@@ -371,11 +396,16 @@ To add a new crawler module:
 
 | File | Purpose |
 |------|---------|
-| `run-both-crawlers.sh` | Start both crawlers simultaneously |
+| `run-all-services.sh` | Start all services (manager + crawlers + frontend) |
+| `run-crawlers-with-manager.sh` | Start backend services (manager + crawlers) |
+| `run-both-crawlers.sh` | Start both crawlers only |
+| `crawler-manager/scripts/dev-start.sh` | Start manager with frontend |
 | `test-multi-crawler-setup.sh` | Comprehensive setup testing |
+| `DEBUG_PORTS.md` | Debug port configuration guide |
 | `MULTI_CRAWLER_SETUP.md` | This documentation |
 | `crawler-caspit/src/main/resources/application.properties` | Caspit crawler configuration |
 | `crawler-drucker/src/main/resources/application.properties` | Drucker crawler configuration |
+| `crawler-manager/src/main/resources/application.properties` | Manager configuration |
 
 ## Support
 

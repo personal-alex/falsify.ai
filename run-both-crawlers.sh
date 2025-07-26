@@ -62,18 +62,18 @@ if lsof -i :8081 >/dev/null 2>&1; then
     exit 1
 fi
 
-# Start crawler-caspit in background
-echo "🚀 Starting crawler-caspit on port 8080..."
-mvn quarkus:dev -pl crawler-caspit -Dquarkus.args="" > caspit.log 2>&1 &
+# Start crawler-caspit in background with debug port 5005
+echo "🚀 Starting crawler-caspit on port 8080 (debug: 5005)..."
+mvn quarkus:dev -pl crawler-caspit -Dquarkus.args="" -Ddebug=5005 > caspit.log 2>&1 &
 CASPIT_PID=$!
 
 # Wait a bit for first crawler to start
 echo "   Waiting for crawler-caspit to initialize..."
 sleep 8
 
-# Start crawler-drucker in background
-echo "🚀 Starting crawler-drucker on port 8081..."
-mvn quarkus:dev -pl crawler-drucker -Dquarkus.args="" > drucker.log 2>&1 &
+# Start crawler-drucker in background with debug port 5006
+echo "🚀 Starting crawler-drucker on port 8081 (debug: 5006)..."
+mvn quarkus:dev -pl crawler-drucker -Dquarkus.args="" -Ddebug=5006 > drucker.log 2>&1 &
 DRUCKER_PID=$!
 
 echo "   Waiting for crawler-drucker to initialize..."
@@ -83,12 +83,12 @@ echo ""
 echo "✅ Both crawlers are starting up!"
 echo ""
 echo "📍 Access Points:"
-echo "   • crawler-caspit: http://localhost:8080"
+echo "   • crawler-caspit: http://localhost:8080 (debug: 5005)"
 echo "     - Health: http://localhost:8080/q/health"
 echo "     - Start crawl: curl -X POST http://localhost:8080/caspit/crawl"
 echo "     - Status: curl http://localhost:8080/caspit/status"
 echo ""
-echo "   • crawler-drucker: http://localhost:8081"
+echo "   • crawler-drucker: http://localhost:8081 (debug: 5006)"
 echo "     - Health: http://localhost:8081/q/health"
 echo "     - Start crawl: curl -X POST http://localhost:8081/drucker/crawl"
 echo "     - Status: curl http://localhost:8081/drucker/status"

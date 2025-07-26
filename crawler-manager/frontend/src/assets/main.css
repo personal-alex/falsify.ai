@@ -1,0 +1,99 @@
+/* Global styles for Crawler Manager UI */
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-family);
+  background-color: var(--surface-ground);
+}
+
+/* Custom CSS variables for consistent theming */
+:root {
+  --header-height: 4rem;
+  --sidebar-width: 16rem;
+  --border-radius: 6px;
+  --transition-duration: 0.2s;
+}
+
+/* Utility classes */
+.full-height {
+  height: 100vh;
+}
+
+.flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.text-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Custom component styles */
+.crawler-card {
+  transition: transform var(--transition-duration), box-shadow var(--transition-duration);
+}
+
+.crawler-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.status-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.status-dot.healthy {
+  background-color: var(--green-500);
+}
+
+.status-dot.unhealthy {
+  background-color: var(--red-500);
+}
+
+.status-dot.unknown {
+  background-color: var(--gray-500);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .p-datatable .p-datatable-tbody > tr > td {
+    padding: 0.5rem;
+    font-size: 0.875rem;
+  }
+  
+  .crawler-card {
+    margin-bottom: 1rem;
+  }
+}
+
+/* Loading states */
+.skeleton {
+  background: linear-gradient(90deg, var(--surface-200) 25%, var(--surface-100) 50%, var(--surface-200) 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+}
+
+@keyframes loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
