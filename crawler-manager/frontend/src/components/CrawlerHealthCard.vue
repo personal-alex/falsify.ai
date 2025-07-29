@@ -1,8 +1,8 @@
 <template>
   <div class="crawler-health-card">
-    <Card class="h-full">
+    <Card class="h-full crawler-card" :class="cardStatusClass">
       <template #header>
-        <div class="flex align-items-center justify-content-between p-3 pb-0">
+        <div class="card-header">
           <div class="flex align-items-center">
             <div 
               class="health-indicator mr-3"
@@ -10,67 +10,85 @@
             >
               <i :class="healthIconClass"></i>
             </div>
-            <div>
-              <h6 class="m-0 text-900 font-semibold">{{ crawler.name }}</h6>
+            <div class="flex-1">
+              <h6 class="m-0 text-900 font-semibold text-lg">{{ crawler.name }}</h6>
               <p class="m-0 text-600 text-sm">{{ crawler.id }}</p>
             </div>
           </div>
-          <div class="flex align-items-center">
+          <div class="flex align-items-center card-actions">
             <Button
               icon="pi pi-refresh"
-              class="p-button-text p-button-sm"
+              text
+              rounded
+              size="small"
               :loading="isRefreshing"
               @click="forceHealthCheck"
               v-tooltip.top="'Force health check'"
+              class="action-button"
             />
             <Button
               icon="pi pi-external-link"
-              class="p-button-text p-button-sm ml-2"
+              text
+              rounded
+              size="small"
               @click="$router.push(`/crawler/${crawler.id}`)"
               v-tooltip.top="'View details'"
+              data-testid="detail-button"
+              class="action-button ml-1"
             />
           </div>
         </div>
       </template>
       
       <template #content>
-        <div class="p-3 pt-0">
-          <div class="grid">
+        <div class="card-content">
+          <!-- Status and Response Time Row -->
+          <div class="grid mb-3">
             <div class="col-6">
-              <div class="text-600 text-sm mb-1">Status</div>
-              <div class="flex align-items-center">
+              <div class="metric-item">
+                <div class="metric-label">Status</div>
                 <Tag 
                   :value="health.status" 
                   :severity="statusSeverity"
-                  class="text-xs"
+                  class="metric-tag"
                 />
               </div>
             </div>
             <div class="col-6">
-              <div class="text-600 text-sm mb-1">Response Time</div>
-              <div class="text-900 font-medium">
-                {{ responseTimeDisplay }}
+              <div class="metric-item">
+                <div class="metric-label">Response Time</div>
+                <div class="metric-value" :class="responseTimeClass">
+                  {{ responseTimeDisplay }}
+                </div>
               </div>
             </div>
-            <div class="col-12 mt-2">
-              <div class="text-600 text-sm mb-1">Last Check</div>
-              <div class="text-900 text-sm">{{ lastCheckDisplay }}</div>
-            </div>
-            <div class="col-12 mt-2" v-if="health.message">
-              <div class="text-600 text-sm mb-1">Message</div>
-              <div class="text-900 text-sm">{{ health.message }}</div>
-            </div>
+          </div>
+
+          <!-- Last Check -->
+          <div class="metric-item mb-3">
+            <div class="metric-label">Last Check</div>
+            <div class="metric-value">{{ lastCheckDisplay }}</div>
+          </div>
+
+          <!-- Message (if exists) -->
+          <div v-if="health.message" class="metric-item mb-3">
+            <div class="metric-label">Message</div>
+            <div class="metric-value text-sm" :class="messageClass">{{ health.message }}</div>
           </div>
           
-          <div class="mt-3">
-            <div class="text-600 text-sm mb-2">Endpoint</div>
-            <div class="flex align-items-center">
-              <span class="text-900 text-sm mr-2">{{ crawler.baseUrl }}</span>
+          <!-- Endpoint -->
+          <div class="endpoint-section">
+            <div class="metric-label mb-2">Endpoint</div>
+            <div class="flex align-items-center endpoint-container">
+              <span class="endpoint-url flex-1">{{ crawler.baseUrl }}</span>
               <Button
                 icon="pi pi-copy"
-                class="p-button-text p-button-sm"
+                text
+                rounded
+                size="small"
                 @click="copyToClipboard(crawler.baseUrl)"
                 v-tooltip.top="'Copy URL'"
+                class="copy-button"
               />
             </div>
           </div>
@@ -82,13 +100,12 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { useRouter } from 'vue-router'
-import { useToast } from 'primevue/usetoast'
 import Card from 'primevue/card'
 import Button from 'primevue/button'
 import Tag from 'primevue/tag'
 import type { CrawlerConfiguration, HealthStatus } from '@/types/health'
 import { ApiService } from '@/services/api'
+import { useNotifications } from '@/composables/useNotifications'
 
 interface Props {
   crawler: CrawlerConfiguration
@@ -100,8 +117,7 @@ const emit = defineEmits<{
   healthUpdated: [health: HealthStatus]
 }>()
 
-const router = useRouter()
-const toast = useToast()
+const { showToast, handleApiError } = useNotifications()
 const isRefreshing = ref(false)
 
 const healthIndicatorClass = computed(() => {
@@ -137,6 +153,35 @@ const statusSeverity = computed(() => {
   }
 })
 
+const cardStatusClass = computed(() => {
+  switch (props.health.status) {
+    case 'HEALTHY':
+      return 'card-healthy'
+    case 'UNHEALTHY':
+      return 'card-unhealthy'
+    default:
+      return 'card-unknown'
+  }
+})
+
+const responseTimeClass = computed(() => {
+  if (props.health.responseTimeMs === null) return 'text-600'
+  if (props.health.responseTimeMs < 500) return 'text-green-600'
+  if (props.health.responseTimeMs < 1000) return 'text-orange-600'
+  return 'text-red-600'
+})
+
+const messageClass = computed(() => {
+  switch (props.health.status) {
+    case 'HEALTHY':
+      return 'text-green-700'
+    case 'UNHEALTHY':
+      return 'text-red-700'
+    default:
+      return 'text-orange-700'
+  }
+})
+
 const responseTimeDisplay = computed(() => {
   if (props.health.responseTimeMs === null) {
     return 'N/A'
@@ -169,20 +214,13 @@ const forceHealthCheck = async () => {
   try {
     const updatedHealth = await ApiService.forceHealthCheck(props.crawler.id)
     emit('healthUpdated', updatedHealth)
-    toast.add({
-      severity: 'success',
-      summary: 'Health Check',
-      detail: `Forced health check for ${props.crawler.name}`,
-      life: 3000
-    })
+    showToast.success(
+      'Health Check',
+      `Forced health check for ${props.crawler.name}`
+    )
   } catch (error) {
     console.error('Failed to force health check:', error)
-    toast.add({
-      severity: 'error',
-      summary: 'Error',
-      detail: 'Failed to perform health check',
-      life: 5000
-    })
+    handleApiError(error, 'Health check')
   } finally {
     isRefreshing.value = false
   }
@@ -191,20 +229,17 @@ const forceHealthCheck = async () => {
 const copyToClipboard = async (text: string) => {
   try {
     await navigator.clipboard.writeText(text)
-    toast.add({
-      severity: 'success',
-      summary: 'Copied',
-      detail: 'URL copied to clipboard',
-      life: 2000
-    })
+    showToast.success(
+      'Copied',
+      'URL copied to clipboard',
+      { life: 2000 }
+    )
   } catch (error) {
     console.error('Failed to copy to clipboard:', error)
-    toast.add({
-      severity: 'error',
-      summary: 'Error',
-      detail: 'Failed to copy URL',
-      life: 3000
-    })
+    showToast.error(
+      'Copy Failed',
+      'Failed to copy URL to clipboard'
+    )
   }
 }
 </script>
@@ -214,34 +249,188 @@ const copyToClipboard = async (text: string) => {
   height: 100%;
 }
 
+.crawler-card {
+  height: 100%;
+  transition: all 0.3s ease;
+  border: 1px solid var(--surface-border);
+  position: relative;
+  overflow: hidden;
+}
+
+.crawler-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 25px 0 rgba(0, 0, 0, 0.15);
+}
+
+/* Card status indicators */
+.card-healthy {
+  border-left: 4px solid var(--green-500);
+}
+
+.card-unhealthy {
+  border-left: 4px solid var(--red-500);
+}
+
+.card-unknown {
+  border-left: 4px solid var(--orange-500);
+}
+
+/* Header styling */
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 1.25rem 0.75rem 1.25rem;
+}
+
+.card-actions {
+  opacity: 0.7;
+  transition: opacity 0.2s ease;
+}
+
+.crawler-card:hover .card-actions {
+  opacity: 1;
+}
+
+.action-button {
+  width: 2rem;
+  height: 2rem;
+}
+
+/* Health indicator */
 .health-indicator {
-  width: 2.5rem;
-  height: 2.5rem;
-  border-radius: 50%;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.2rem;
+  font-size: 1.25rem;
   color: white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .health-healthy {
-  background-color: var(--green-500);
+  background: linear-gradient(135deg, var(--green-500), var(--green-600));
 }
 
 .health-unhealthy {
-  background-color: var(--red-500);
+  background: linear-gradient(135deg, var(--red-500), var(--red-600));
 }
 
 .health-unknown {
-  background-color: var(--orange-500);
+  background: linear-gradient(135deg, var(--orange-500), var(--orange-600));
 }
 
+/* Content styling */
+.card-content {
+  padding: 0 1.25rem 1.25rem 1.25rem;
+}
+
+.metric-item {
+  margin-bottom: 0.5rem;
+}
+
+.metric-label {
+  font-size: 0.875rem;
+  color: var(--text-color-secondary);
+  font-weight: 500;
+  margin-bottom: 0.25rem;
+}
+
+.metric-value {
+  font-size: 0.95rem;
+  color: var(--text-color);
+  font-weight: 600;
+}
+
+.metric-tag {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.25rem 0.5rem;
+}
+
+/* Endpoint section */
+.endpoint-section {
+  background: var(--surface-50);
+  border: 1px solid var(--surface-200);
+  border-radius: 8px;
+  padding: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.endpoint-container {
+  background: var(--surface-0);
+  border: 1px solid var(--surface-300);
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+}
+
+.endpoint-url {
+  font-size: 0.875rem;
+  color: var(--text-color);
+  font-family: 'Courier New', monospace;
+  word-break: break-all;
+}
+
+.copy-button {
+  width: 1.75rem;
+  height: 1.75rem;
+  margin-left: 0.5rem;
+}
+
+/* Card customizations */
 :deep(.p-card-body) {
   padding: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 :deep(.p-card-content) {
   padding: 0;
+  flex: 1;
+}
+
+:deep(.p-card-header) {
+  padding: 0;
+}
+
+/* Responsive adjustments */
+@media screen and (max-width: 768px) {
+  .card-header {
+    padding: 1rem 1rem 0.5rem 1rem;
+  }
+  
+  .card-content {
+    padding: 0 1rem 1rem 1rem;
+  }
+  
+  .health-indicator {
+    width: 2.5rem;
+    height: 2.5rem;
+    font-size: 1rem;
+  }
+  
+  .endpoint-section {
+    padding: 0.5rem;
+  }
+  
+  .endpoint-container {
+    padding: 0.375rem 0.5rem;
+  }
+}
+
+/* Dark theme adjustments */
+:root.dark {
+  .endpoint-section {
+    background: var(--surface-800);
+    border-color: var(--surface-700);
+  }
+  
+  .endpoint-container {
+    background: var(--surface-900);
+    border-color: var(--surface-600);
+  }
 }
 </style>

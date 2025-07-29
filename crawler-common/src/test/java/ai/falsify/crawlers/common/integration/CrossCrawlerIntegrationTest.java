@@ -7,6 +7,7 @@ import ai.falsify.crawlers.common.service.ContentValidator;
 import ai.falsify.crawlers.common.service.RetryService;
 import ai.falsify.crawlers.common.service.redis.DeduplicationService;
 import io.quarkus.test.junit.QuarkusTest;
+import io.quarkus.test.junit.TestProfile;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -22,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * with different crawler implementations and patterns.
  */
 @QuarkusTest
+@TestProfile(CrossCrawlerIntegrationTest.TestProfile.class)
 class CrossCrawlerIntegrationTest {
 
     @Inject
@@ -41,6 +43,9 @@ class CrossCrawlerIntegrationTest {
         // Clear test data
         deduplicationService.clearProcessedUrls("test-drucker");
         deduplicationService.clearProcessedUrls("test-caspit");
+        
+        // Reset circuit breaker to ensure clean state for each test
+        retryService.resetCircuitBreaker();
     }
 
     @Test
@@ -207,6 +212,7 @@ class CrossCrawlerIntegrationTest {
             try {
                 // Check deduplication
                 if (!deduplicationService.isNewUrl("test-drucker", article.url())) {
+                    System.out.println("Skipping existing article " + article.url());
                     skipped++;
                     continue;
                 }
@@ -215,11 +221,13 @@ class CrossCrawlerIntegrationTest {
                 try {
                     contentValidator.validateArticle(article.title(), article.url(), article.text());
                 } catch (Exception e) {
+                    System.out.println("--Failed to validate " + article.url());
                     throw new RuntimeException("Validation failed", e);
                 }
                 
                 processed++;
             } catch (Exception e) {
+                System.err.println(e);
                 failed++;
             }
         }
@@ -292,5 +300,19 @@ class CrossCrawlerIntegrationTest {
                 .crawlerSource("test-caspit")
                 .errors(List.of())
                 .build();
+    }
+    /**
+     * Test profile for integration tests
+     */
+    public static class TestProfile implements io.quarkus.test.junit.QuarkusTestProfile {
+        @Override
+        public java.util.Map<String, String> getConfigOverrides() {
+            return java.util.Map.of(
+                "crawler.common.retry.max-attempts", "3",
+                "crawler.common.retry.circuit-breaker-failure-threshold", "30", // Higher threshold for cross-crawler tests
+                "crawler.common.content.min-content-length", "50",
+                "quarkus.log.category.\"ai.falsify.crawlers.common\".level", "DEBUG"
+            );
+        }
     }
 }

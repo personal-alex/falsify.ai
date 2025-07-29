@@ -1,8 +1,9 @@
 <template>
   <div class="crawler-detail">
-    <div class="surface-0 shadow-2 p-3 border-1 border-50 border-round">
-      <div class="flex align-items-center mb-5">
-        <Button 
+    <div class="crawler-detail-container">
+      <div class="surface-0 shadow-2 p-3 border-1 border-50 border-round">
+        <div class="flex align-items-center mb-5">
+          <Button 
           icon="pi pi-arrow-left" 
           class="p-button-text p-button-plain mr-3"
           @click="$router.push('/')"
@@ -20,13 +21,41 @@
           </div>
           <span class="text-600 text-xl">{{ crawlerId }}</span>
         </div>
-        <div class="flex align-items-center">
+        
+        <!-- Action Buttons in Header -->
+        <div class="flex align-items-center gap-2 flex-wrap">
+          <Button
+            icon="pi pi-play"
+            label="Start Crawl"
+            :loading="isCrawling"
+            :disabled="!configuration?.enabled || health?.status !== 'HEALTHY'"
+            @click="triggerCrawl"
+            class="p-button-success p-button-sm"
+            v-tooltip.bottom="!configuration?.enabled ? 'Crawler is disabled' : health?.status !== 'HEALTHY' ? 'Crawler must be healthy to start crawl' : 'Start a new crawl'"
+          />
           <Button
             icon="pi pi-refresh"
-            label="Refresh"
-            class="p-button-sm"
+            label="Force Health Check"
             :loading="isRefreshing"
             @click="forceHealthCheck"
+            class="p-button-sm"
+            v-tooltip.bottom="'Force a health check for this crawler'"
+          />
+          <Button
+            icon="pi pi-info-circle"
+            label="Check Status"
+            class="p-button-outlined p-button-sm"
+            @click="checkCrawlStatus"
+            v-if="configuration"
+            v-tooltip.bottom="'Check current crawl status'"
+          />
+          <Button
+            icon="pi pi-external-link"
+            label="Open Health"
+            class="p-button-outlined p-button-sm"
+            @click="openHealthEndpoint"
+            v-if="configuration"
+            v-tooltip.bottom="'Open health endpoint in new tab'"
           />
         </div>
       </div>
@@ -228,53 +257,31 @@
           </div>
         </div>
 
-        <!-- Actions Card -->
-        <div class="col-12">
+        <!-- Metrics Card -->
+        <div class="col-12" v-if="configuration?.enabled">
           <div class="card">
-            <h5 class="flex align-items-center">
-              <i class="pi pi-wrench mr-2"></i>
-              Actions
-            </h5>
-            <div class="flex flex-wrap gap-2">
-              <div class="flex align-items-center">
-                <Button
-                  icon="pi pi-play"
-                  label="Start Crawl"
-                  :loading="isCrawling"
-                  :disabled="!configuration?.enabled || health?.status !== 'HEALTHY'"
-                  @click="triggerCrawl"
-                  class="p-button-success"
-                />
-                <small 
-                  v-if="!configuration?.enabled || health?.status !== 'HEALTHY'" 
-                  class="text-600 ml-2"
-                >
-                  {{ !configuration?.enabled ? 'Crawler is disabled' : 'Crawler must be healthy to start crawl' }}
-                </small>
-              </div>
-              <Button
-                icon="pi pi-refresh"
-                label="Force Health Check"
-                :loading="isRefreshing"
-                @click="forceHealthCheck"
-              />
-              <Button
-                icon="pi pi-info-circle"
-                label="Check Crawl Status"
-                class="p-button-outlined"
-                @click="checkCrawlStatus"
-                v-if="configuration"
-              />
-              <Button
-                icon="pi pi-external-link"
-                label="Open Health Endpoint"
-                class="p-button-outlined"
-                @click="openHealthEndpoint"
-                v-if="configuration"
-              />
-            </div>
+            <MetricsComponent 
+              :crawler-id="crawlerId" 
+              :auto-refresh="true"
+              :refresh-interval="30000"
+            />
           </div>
         </div>
+
+        <!-- Job History Card -->
+        <div class="col-12" v-if="configuration?.enabled">
+          <div class="card">
+            <JobHistory 
+              :crawler-id="crawlerId" 
+              :show-pagination="true"
+              :page-size="10"
+              :auto-refresh="true"
+              :refresh-interval="30000"
+            />
+          </div>
+        </div>
+
+
       </div>
 
       <!-- Last Updated -->
@@ -282,6 +289,7 @@
         <small class="text-600">
           Last updated: {{ lastUpdatedDisplay }}
         </small>
+        </div>
       </div>
     </div>
   </div>
@@ -294,6 +302,8 @@ import Button from 'primevue/button'
 import ProgressSpinner from 'primevue/progressspinner'
 import Message from 'primevue/message'
 import Tag from 'primevue/tag'
+import MetricsComponent from '@/components/MetricsComponent.vue'
+import JobHistory from '@/components/JobHistory.vue'
 import type { CrawlerConfiguration, HealthStatus, CrawlResponse } from '@/types/health'
 import { ApiService } from '@/services/api'
 import { HealthWebSocketService, type HealthUpdateMessage } from '@/services/websocket'
@@ -634,9 +644,15 @@ onUnmounted(() => {
 
 <style scoped>
 .crawler-detail {
-  padding: 2rem;
-  min-height: 100vh;
+  height: 100%;
+  overflow-y: auto;
   background-color: var(--surface-ground);
+}
+
+.crawler-detail-container {
+  padding: 2rem;
+  min-height: 100%;
+  max-width: 100%;
 }
 
 .card {
@@ -668,5 +684,57 @@ onUnmounted(() => {
 
 .health-unknown {
   background-color: var(--orange-500);
+}
+
+/* Header action buttons responsive behavior */
+@media screen and (max-width: 1200px) {
+  .flex.align-items-center.gap-2.flex-wrap .p-button {
+    font-size: 0.875rem;
+    padding: 0.5rem 0.75rem;
+  }
+  
+  .flex.align-items-center.gap-2.flex-wrap .p-button .p-button-label {
+    display: none;
+  }
+}
+
+@media screen and (max-width: 768px) {
+  .surface-0.shadow-2 .flex.align-items-center.mb-5 {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+  
+  .flex.align-items-center.gap-2.flex-wrap {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  
+  .flex.align-items-center.gap-2.flex-wrap .p-button {
+    flex: 1;
+    min-width: auto;
+  }
+}
+
+/* Responsive adjustments */
+@media screen and (max-width: 991px) {
+  .crawler-detail-container {
+    padding: 1.5rem;
+  }
+}
+
+@media screen and (max-width: 575px) {
+  .crawler-detail-container {
+    padding: 1rem;
+  }
+  
+  .card {
+    padding: 1rem;
+  }
+  
+  .flex.align-items-center.gap-2.flex-wrap .p-button {
+    font-size: 0.75rem;
+    padding: 0.375rem 0.5rem;
+  }
 }
 </style>

@@ -58,6 +58,9 @@ class CommonModuleIntegrationTest {
         } catch (Exception e) {
             // Ignore cleanup errors
         }
+        
+        // Reset circuit breaker to ensure clean state for each test
+        retryService.resetCircuitBreaker();
     }
 
     @Nested
@@ -76,7 +79,8 @@ class CommonModuleIntegrationTest {
             // Test default values
             assertTrue(config.content().enableContentValidation(), "Content validation should be enabled by default");
             assertTrue(config.retry().enableCircuitBreaker(), "Circuit breaker should be enabled by default");
-            assertEquals(3, config.retry().maxAttempts(), "Default max attempts should be 3");
+            // default value 3 is overriden in TestProfile to support RetryService tests
+            assertEquals(2, config.retry().maxAttempts(), "Default max attempts should be 2");
         }
 
         @Test
@@ -228,7 +232,7 @@ class CommonModuleIntegrationTest {
         @DisplayName("Should handle URL deduplication with expiration")
         void shouldHandleUrlDeduplicationWithExpiration() {
             String url = "https://example.com/expiring-article";
-            Duration shortExpiration = Duration.ofMillis(100);
+            Duration shortExpiration = Duration.ofSeconds(2); // Use seconds instead of milliseconds
 
             // Test with expiration
             assertTrue(deduplicationService.isNewUrl("test", url, shortExpiration), 
@@ -302,14 +306,15 @@ class CommonModuleIntegrationTest {
             
             String result = retryService.executeWithRetry(() -> {
                 int count = callCount.incrementAndGet();
-                if (count < 3) {
+                if (count < config.retry().maxAttempts()) {
                     throw new RuntimeException("Simulated failure " + count);
                 }
                 return "success-after-retries";
             }, "test-retry-operation");
 
             assertEquals("success-after-retries", result, "Should return successful result after retries");
-            assertEquals(3, callCount.get(), "Should call operation 3 times (2 failures + 1 success)");
+            // Update this assertion based on max-retry count in test profile
+            assertEquals(2, callCount.get(), "Should call operation 2 times (1 failures + 1 success)");
         }
 
         @Test
@@ -351,10 +356,10 @@ class CommonModuleIntegrationTest {
                 retryService.executeWithRetry(() -> {
                     callCount.incrementAndGet();
                     throw new IllegalArgumentException("Non-retryable exception");
-                }, "test-non-retryable", RuntimeException.class);
+                }, "test-non-retryable", CrawlingException.class);
             });
             
-            assertEquals(1, callCount.get(), "Should not retry on IllegalArgumentException when expecting RuntimeException");
+            assertEquals(1, callCount.get(), "Should not retry on IllegalArgumentException when expecting CrawlingException");
         }
     }
 
@@ -514,6 +519,7 @@ class CommonModuleIntegrationTest {
         public java.util.Map<String, String> getConfigOverrides() {
             return java.util.Map.of(
                 "crawler.common.retry.max-attempts", "2",
+                "crawler.common.retry.circuit-breaker-failure-threshold", "20", // Higher threshold for tests
                 "crawler.common.content.min-content-length", "50",
                 "quarkus.log.category.\"ai.falsify.crawlers.common\".level", "DEBUG"
             );

@@ -30,6 +30,7 @@ public class DruckerResource {
     private static final Logger LOG = Logger.getLogger(DruckerResource.class);
 
     private final DruckerCrawler crawler;
+    private final JobCallbackService callbackService;
 
     // Simple in-memory status tracking (in production, this would be externalized)
     private final AtomicBoolean crawlInProgress = new AtomicBoolean(false);
@@ -39,20 +40,24 @@ public class DruckerResource {
     private final AtomicReference<Integer> lastArticleCount = new AtomicReference<>(0);
 
     @Inject
-    public DruckerResource(DruckerCrawler crawler) {
+    public DruckerResource(DruckerCrawler crawler, JobCallbackService callbackService) {
         this.crawler = crawler;
+        this.callbackService = callbackService;
     }
 
     /**
      * Trigger a crawl of Drucker articles with comprehensive error handling and
      * monitoring.
      * Returns immediately with crawl initiation status.
+     * 
+     * This method supports both the new callback-enabled requests and legacy requests.
      */
     @POST
     @Path("/crawl")
-    public Response startCrawl() {
+    public Response startCrawl(CrawlRequest crawlRequest) {
         String requestId = "crawl-" + System.currentTimeMillis();
-        LOG.infof("Received crawl request [%s] to start Drucker crawl", requestId);
+        LOG.infof("Received crawl request [%s] to start Drucker crawl with job ID: %s", 
+                 requestId, crawlRequest != null ? crawlRequest.jobId : "none");
 
         try {
             // Validate crawler dependency
@@ -104,6 +109,11 @@ public class DruckerResource {
                     lastCrawlStatus.set("RUNNING");
                     lastCrawlResult.set("Crawl in progress - collecting articles");
 
+                    // Report initial progress
+                    callbackService.reportProgress(crawlRequest != null ? crawlRequest.callbackUrl : null, 
+                                                  crawlRequest != null ? crawlRequest.jobId : null, 
+                                                  0, 0, 0, "Starting crawl");
+
                     // Execute the crawl with timeout monitoring and proper CDI context
                     ai.falsify.crawlers.common.model.CrawlResult crawlResult = executeCrawlWithContext();
 
@@ -120,6 +130,13 @@ public class DruckerResource {
                             crawlId, crawlResult.articles().size(), executionTime,
                             executionTime > 0 ? (crawlResult.articles().size() * 1000.0 / executionTime) : 0);
 
+                    // Report completion to manager
+                    callbackService.reportCompletion(crawlRequest != null ? crawlRequest.callbackUrl : null,
+                                                    crawlRequest != null ? crawlRequest.jobId : null,
+                                                    crawlResult.articlesProcessed(), 
+                                                    crawlResult.articlesSkipped(), 
+                                                    crawlResult.articlesFailed());
+
                     return crawlResult;
 
                 } catch (IOException ioException) {
@@ -133,6 +150,12 @@ public class DruckerResource {
                     lastArticleCount.set(0);
 
                     LOG.errorf("Crawl [%s] failed with IO error: %s", crawlId, ioException.getMessage(), ioException);
+                    
+                    // Report failure to manager
+                    callbackService.reportFailure(crawlRequest != null ? crawlRequest.callbackUrl : null,
+                                                 crawlRequest != null ? crawlRequest.jobId : null,
+                                                 errorMessage);
+                    
                     throw new RuntimeException(ioException);
 
                 } catch (IllegalArgumentException argException) {
@@ -147,6 +170,12 @@ public class DruckerResource {
 
                     LOG.errorf("Crawl [%s] failed with configuration error: %s", crawlId, argException.getMessage(),
                             argException);
+                    
+                    // Report failure to manager
+                    callbackService.reportFailure(crawlRequest != null ? crawlRequest.callbackUrl : null,
+                                                 crawlRequest != null ? crawlRequest.jobId : null,
+                                                 errorMessage);
+                    
                     throw new RuntimeException(argException);
 
                 } catch (RuntimeException runtimeException) {
@@ -161,6 +190,12 @@ public class DruckerResource {
 
                     LOG.errorf("Crawl [%s] failed with runtime error: %s", crawlId, runtimeException.getMessage(),
                             runtimeException);
+                    
+                    // Report failure to manager
+                    callbackService.reportFailure(crawlRequest != null ? crawlRequest.callbackUrl : null,
+                                                 crawlRequest != null ? crawlRequest.jobId : null,
+                                                 errorMessage);
+                    
                     throw runtimeException;
 
                 } catch (Exception generalException) {
@@ -175,6 +210,12 @@ public class DruckerResource {
 
                     LOG.errorf("Crawl [%s] failed with unexpected error: %s", crawlId, generalException.getMessage(),
                             generalException);
+                    
+                    // Report failure to manager
+                    callbackService.reportFailure(crawlRequest != null ? crawlRequest.callbackUrl : null,
+                                                 crawlRequest != null ? crawlRequest.jobId : null,
+                                                 errorMessage);
+                    
                     throw new RuntimeException(generalException);
 
                 } finally {
@@ -196,10 +237,16 @@ public class DruckerResource {
                                 LOG.errorf("Asynchronous crawl execution failed [%s]: %s", requestId,
                                         failure.getMessage(), failure);
 
+                                String errorMessage = "Asynchronous execution failed: " + failure.getMessage();
                                 lastCrawlStatus.set("FAILED_ASYNC");
-                                lastCrawlResult.set("Asynchronous execution failed: " + failure.getMessage());
+                                lastCrawlResult.set(errorMessage);
                                 lastArticleCount.set(0);
                                 crawlInProgress.set(false);
+                                
+                                // Report failure to manager
+                                callbackService.reportFailure(crawlRequest != null ? crawlRequest.callbackUrl : null,
+                                                             crawlRequest != null ? crawlRequest.jobId : null,
+                                                             errorMessage);
                             });
 
             // Return immediate response with detailed information

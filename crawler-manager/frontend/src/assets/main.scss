@@ -1,0 +1,264 @@
+// Main SCSS file for Sakai template integration
+
+// Import Sakai themes
+@import 'themes/sakai-light.scss';
+@import 'themes/sakai-dark.scss';
+
+// Global reset and base styles
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
+  font-size: 14px;
+  font-weight: normal;
+  background-color: var(--surface-ground);
+  color: var(--text-color);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+// Theme transition classes
+.theme-transition {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+// Apply theme transitions to common elements
+* {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+#app {
+  height: 100vh;
+  overflow: hidden;
+}
+
+// Utility classes
+.full-height {
+  height: 100vh;
+}
+
+.flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.text-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.surface-ground {
+  background-color: var(--surface-ground);
+}
+
+.surface-section {
+  background-color: var(--surface-section);
+}
+
+.surface-card {
+  background-color: var(--surface-card);
+}
+
+// Enhanced component styles for Sakai integration
+.crawler-card {
+  transition: transform var(--transition-duration), box-shadow var(--transition-duration);
+  border-radius: var(--border-radius);
+  
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--card-shadow-hover);
+  }
+}
+
+.status-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 500;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.status-dot.healthy {
+  background-color: var(--green-500);
+}
+
+.status-dot.unhealthy {
+  background-color: var(--red-500);
+}
+
+.status-dot.unknown {
+  background-color: var(--surface-400);
+}
+
+// Layout specific styles
+.layout-wrapper {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.layout-sidebar {
+  position: fixed;
+  left: 0;
+  top: 0;
+  height: 100vh;
+  width: var(--sidebar-width);
+  background-color: var(--surface-section);
+  border-right: 1px solid var(--surface-border);
+  z-index: 999;
+  transition: transform var(--transition-duration);
+  
+  &.layout-sidebar-collapsed {
+    width: var(--sidebar-collapsed-width);
+  }
+  
+  &.layout-sidebar-mobile {
+    transform: translateX(-100%);
+    
+    &.layout-sidebar-mobile-active {
+      transform: translateX(0);
+    }
+  }
+}
+
+.layout-topbar {
+  position: fixed;
+  top: 0;
+  left: var(--sidebar-width);
+  right: 0;
+  height: var(--header-height);
+  background-color: var(--surface-section);
+  border-bottom: 1px solid var(--surface-border);
+  z-index: 997;
+  transition: left var(--transition-duration);
+  
+  .layout-sidebar-collapsed + & {
+    left: var(--sidebar-collapsed-width);
+  }
+}
+
+.layout-main-container {
+  margin-left: var(--sidebar-width);
+  margin-top: var(--header-height);
+  min-height: calc(100vh - var(--header-height));
+  transition: margin-left var(--transition-duration);
+  
+  .layout-sidebar-collapsed ~ & {
+    margin-left: var(--sidebar-collapsed-width);
+  }
+}
+
+.layout-main {
+  padding: 2rem;
+  background-color: var(--surface-ground);
+  min-height: calc(100vh - var(--header-height));
+}
+
+// Responsive design
+@media screen and (max-width: 991px) {
+  .layout-sidebar {
+    transform: translateX(-100%);
+    
+    &.layout-sidebar-mobile-active {
+      transform: translateX(0);
+    }
+  }
+  
+  .layout-topbar {
+    left: 0;
+  }
+  
+  .layout-main-container {
+    margin-left: 0;
+  }
+}
+
+// Loading states and animations
+.skeleton {
+  background: linear-gradient(90deg, var(--surface-200) 25%, var(--surface-100) 50%, var(--surface-200) 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+  border-radius: var(--border-radius);
+}
+
+@keyframes loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+// Fade transitions
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity var(--transition-duration);
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+// Slide transitions
+.slide-enter-active,
+.slide-leave-active {
+  transition: transform var(--transition-duration);
+}
+
+.slide-enter-from {
+  transform: translateX(-100%);
+}
+
+.slide-leave-to {
+  transform: translateX(100%);
+}
+
+// Custom scrollbar
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--surface-100);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--surface-300);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--surface-400);
+}
+
+// Print styles
+@media print {
+  .layout-sidebar,
+  .layout-topbar {
+    display: none;
+  }
+  
+  .layout-main-container {
+    margin: 0;
+  }
+}

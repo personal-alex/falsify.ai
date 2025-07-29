@@ -1,5 +1,7 @@
 package ai.falsify.crawlers.service;
 
+import ai.falsify.crawlers.model.CrawlRequest;
+import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
@@ -31,13 +33,15 @@ public interface CrawlerClient {
     
     @POST
     @Path("/caspit/crawl")
+    @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    CompletionStage<Response> triggerCaspitCrawl();
+    CompletionStage<Response> triggerCaspitCrawl(CrawlRequest request);
     
     @POST
     @Path("/caspit/crawl")
+    @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    Response triggerCaspitCrawlSync();
+    Response triggerCaspitCrawlSync(CrawlRequest request);
     
     @GET
     @Path("/caspit/status")
@@ -62,13 +66,15 @@ public interface CrawlerClient {
     
     @POST
     @Path("/drucker/crawl")
+    @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    CompletionStage<Response> triggerDruckerCrawl();
+    CompletionStage<Response> triggerDruckerCrawl(CrawlRequest request);
     
     @POST
     @Path("/drucker/crawl")
+    @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    Response triggerDruckerCrawlSync();
+    Response triggerDruckerCrawlSync(CrawlRequest request);
     
     @GET
     @Path("/drucker/status")
@@ -93,13 +99,15 @@ public interface CrawlerClient {
     
     @POST
     @Path("/test/crawl")
+    @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    CompletionStage<Response> triggerTestCrawl();
+    CompletionStage<Response> triggerTestCrawl(CrawlRequest request);
     
     @POST
     @Path("/test/crawl")
+    @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    Response triggerTestCrawlSync();
+    Response triggerTestCrawlSync(CrawlRequest request);
     
     @GET
     @Path("/test/status")

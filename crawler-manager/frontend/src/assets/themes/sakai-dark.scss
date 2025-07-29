@@ -1,0 +1,158 @@
+// Sakai Dark Theme
+@import 'variables';
+
+:root[data-theme="dark"] {
+  // Primary Colors (same as light theme)
+  --primary-50: #{$primary-50};
+  --primary-100: #{$primary-100};
+  --primary-200: #{$primary-200};
+  --primary-300: #{$primary-300};
+  --primary-400: #{$primary-400};
+  --primary-500: #{$primary-500};
+  --primary-600: #{$primary-600};
+  --primary-700: #{$primary-700};
+  --primary-800: #{$primary-800};
+  --primary-900: #{$primary-900};
+
+  // Dark Surface Colors
+  --surface-0: #{$dark-surface-0};
+  --surface-50: #{$dark-surface-50};
+  --surface-100: #{$dark-surface-100};
+  --surface-200: #{$dark-surface-200};
+  --surface-300: #{$dark-surface-300};
+  --surface-400: #{$dark-surface-400};
+  --surface-500: #{$dark-surface-500};
+  --surface-600: #{$dark-surface-600};
+  --surface-700: #{$dark-surface-700};
+  --surface-800: #{$dark-surface-800};
+  --surface-900: #{$dark-surface-900};
+
+  // Dark Text Colors
+  --text-color: #{$dark-text-color};
+  --text-color-secondary: #{$dark-text-color-secondary};
+  --text-color-disabled: #{$dark-text-color-disabled};
+
+  // Dark Border Colors
+  --surface-border: #{$dark-border-color};
+  --surface-border-darker: #{$dark-border-color-darker};
+
+  // Status Colors (same as light theme)
+  --green-500: #{$success-color};
+  --yellow-500: #{$warning-color};
+  --red-500: #{$error-color};
+  --blue-500: #{$info-color};
+
+  // Layout Variables (same as light theme)
+  --header-height: #{$header-height};
+  --sidebar-width: #{$sidebar-width};
+  --sidebar-collapsed-width: #{$sidebar-collapsed-width};
+  --border-radius: #{$border-radius};
+  --transition-duration: #{$transition-duration};
+
+  // Component Variables
+  --card-shadow: 0 2px 1px -1px rgba(0, 0, 0, 0.4), 0 1px 1px 0 rgba(0, 0, 0, 0.28), 0 1px 3px 0 rgba(0, 0, 0, 0.24);
+  --card-shadow-hover: 0 4px 5px -2px rgba(0, 0, 0, 0.4), 0 7px 10px 1px rgba(0, 0, 0, 0.28), 0 2px 16px 1px rgba(0, 0, 0, 0.24);
+
+  // Dark Surface Ground
+  --surface-ground: #{$dark-surface-50};
+  --surface-section: #{$dark-surface-0};
+  --surface-card: #{$dark-surface-0};
+  --surface-overlay: #{$dark-surface-100};
+  --surface-hover: #{$dark-surface-100};
+
+  // PrimeVue specific variables for dark theme
+  --primary-color: var(--primary-400);
+  --primary-color-text: #{$dark-surface-0};
+  --surface-a: var(--surface-0);
+  --surface-b: var(--surface-100);
+  --surface-c: var(--surface-200);
+  --surface-d: var(--surface-300);
+  --surface-e: var(--surface-400);
+  --surface-f: var(--surface-500);
+
+  // Color scheme
+  color-scheme: dark;
+}
+
+// Dark theme specific styles
+[data-theme="dark"] {
+  body {
+    background-color: var(--surface-ground);
+    color: var(--text-color);
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+
+  // Layout components for dark theme
+  .layout-sidebar {
+    background-color: var(--surface-section);
+    border-right: 1px solid var(--surface-border);
+  }
+
+  .layout-topbar {
+    background-color: var(--surface-section);
+    border-bottom: 1px solid var(--surface-border);
+  }
+
+  .layout-main {
+    background-color: var(--surface-ground);
+  }
+
+  // Enhanced card shadows for dark theme
+  .p-card {
+    box-shadow: var(--card-shadow);
+    
+    &:hover {
+      box-shadow: var(--card-shadow-hover);
+    }
+  }
+
+  // DataTable dark theme enhancements
+  .p-datatable {
+    .p-datatable-header {
+      background-color: var(--surface-section);
+      border-bottom: 1px solid var(--surface-border);
+    }
+    
+    .p-datatable-tbody > tr {
+      &:hover {
+        background-color: var(--surface-hover);
+      }
+    }
+  }
+
+  // Sidebar menu dark theme styles
+  .layout-menu {
+    .p-menuitem-link {
+      &:hover {
+        background-color: var(--surface-hover);
+      }
+      
+      &.router-link-active {
+        background-color: var(--primary-900);
+        color: var(--primary-200);
+      }
+    }
+  }
+
+  // Input components dark theme
+  .p-inputtext {
+    background-color: var(--surface-100);
+    border-color: var(--surface-border);
+    color: var(--text-color);
+    
+    &:focus {
+      border-color: var(--primary-400);
+    }
+  }
+
+  // Button dark theme adjustments
+  .p-button.p-button-secondary {
+    background-color: var(--surface-200);
+    border-color: var(--surface-border);
+    color: var(--text-color);
+    
+    &:hover {
+      background-color: var(--surface-300);
+    }
+  }
+}

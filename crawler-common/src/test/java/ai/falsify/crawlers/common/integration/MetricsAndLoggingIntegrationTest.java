@@ -1,10 +1,12 @@
 package ai.falsify.crawlers.common.integration;
 
 import ai.falsify.crawlers.common.config.CrawlerConfiguration;
+import ai.falsify.crawlers.common.exception.ContentValidationException;
 import ai.falsify.crawlers.common.service.ContentValidator;
 import ai.falsify.crawlers.common.service.RetryService;
 import ai.falsify.crawlers.common.service.redis.DeduplicationService;
 import io.quarkus.test.junit.QuarkusTest;
+import io.quarkus.test.junit.TestProfile;
 import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
 import org.junit.jupiter.api.BeforeEach;
@@ -22,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * across the common module services.
  */
 @QuarkusTest
+@TestProfile(MetricsAndLoggingIntegrationTest.TestProfile.class)
 class MetricsAndLoggingIntegrationTest {
 
     private static final Logger LOG = Logger.getLogger(MetricsAndLoggingIntegrationTest.class);
@@ -42,6 +45,9 @@ class MetricsAndLoggingIntegrationTest {
     void setUp() {
         // Clear test data
         deduplicationService.clearProcessedUrls("metrics-test");
+        
+        // Reset circuit breaker to ensure clean state for each test
+        retryService.resetCircuitBreaker();
     }
 
     @Test
@@ -95,7 +101,7 @@ class MetricsAndLoggingIntegrationTest {
                 contentValidator.validateArticle(
                     "Performance Test Article " + i,
                     "https://example.com/perf-test-" + i,
-                    "This is performance test article " + i + " with sufficient content for validation testing."
+                    "This is performance test article " + i + " with sufficient content for validation testing. The length should be longer than 100"
                 );
             }
         }, "Content validation performance test should complete");
@@ -130,7 +136,7 @@ class MetricsAndLoggingIntegrationTest {
         // Test error logging consistency
         
         // Test content validation error logging
-        assertThrows(Exception.class, () -> {
+        assertThrows(ContentValidationException.class, () -> {
             contentValidator.validateArticle("", "", ""); // Invalid content
         }, "Content validation should throw exception with proper error logging");
 
@@ -272,13 +278,27 @@ class MetricsAndLoggingIntegrationTest {
                 contentValidator.validateArticle(
                     "Structured Logging Test",
                     "https://example.com/structured-test",
-                    "This is a structured logging test with sufficient content for validation."
+                    "This is a structured logging test with sufficient content for validation. The length should be at least 100"
                 );
             }, "Structured logging should work with content validation");
             
             assertTrue(true, "Structured logging test completed");
         } else {
             LOG.info("Structured logging is disabled, skipping structured logging tests");
+        }
+    }
+    /**
+     * Test profile for integration tests
+     */
+    public static class TestProfile implements io.quarkus.test.junit.QuarkusTestProfile {
+        @Override
+        public java.util.Map<String, String> getConfigOverrides() {
+            return java.util.Map.of(
+                "crawler.common.retry.max-attempts", "3",
+                "crawler.common.retry.circuit-breaker-failure-threshold", "25", // Higher threshold for metrics tests
+                "crawler.common.content.min-content-length", "50",
+                "quarkus.log.category.\"ai.falsify.crawlers.common\".level", "DEBUG"
+            );
         }
     }
 }
