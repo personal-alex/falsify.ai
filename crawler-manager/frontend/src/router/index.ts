@@ -7,94 +7,114 @@ const router = createRouter({
     {
       path: '/',
       name: 'dashboard',
-      component: Dashboard
+      component: Dashboard,
+      meta: {
+        title: 'Dashboard',
+        breadcrumb: [{ label: 'Dashboard' }]
+      }
     },
     {
       path: '/crawler/:id',
       name: 'crawler-detail',
       component: () => import('@/views/CrawlerDetail.vue'),
-      props: true
+      props: true,
+      meta: {
+        title: 'Crawler Detail',
+        breadcrumb: [
+          { label: 'Dashboard', to: '/' },
+          { label: 'Crawlers Management', to: '/crawlers/management' },
+          { label: 'Crawler Detail' }
+        ]
+      }
     },
-    // Placeholder routes for menu items (to be implemented later)
+    // Crawlers Management routes
     {
-      path: '/crawlers',
-      name: 'crawlers-overview',
-      component: Dashboard // Temporary redirect to dashboard
-    },
-    {
-      path: '/crawlers/active',
-      name: 'crawlers-active',
-      component: Dashboard // Temporary redirect to dashboard
-    },
-    {
-      path: '/crawlers/health',
-      name: 'crawlers-health',
-      component: Dashboard // Temporary redirect to dashboard
-    },
-    {
-      path: '/jobs/history',
-      name: 'jobs-history',
-      component: Dashboard // Temporary redirect to dashboard
-    },
-    {
-      path: '/jobs/scheduled',
-      name: 'jobs-scheduled',
-      component: Dashboard // Temporary redirect to dashboard
+      path: '/crawlers/management',
+      name: 'crawlers-management',
+      component: () => import('@/views/CrawlersManagement.vue'),
+      meta: {
+        title: 'Crawlers Management',
+        breadcrumb: [
+          { label: 'Dashboard', to: '/' },
+          { label: 'Crawlers Management' }
+        ]
+      }
     },
     {
-      path: '/jobs/failed',
-      name: 'jobs-failed',
-      component: Dashboard // Temporary redirect to dashboard
+      path: '/crawlers/history',
+      name: 'crawlers-history',
+      component: () => import('@/views/CrawlersHistory.vue'),
+      meta: {
+        title: 'Crawlers History',
+        breadcrumb: [
+          { label: 'Dashboard', to: '/' },
+          { label: 'Crawlers Management', to: '/crawlers/management' },
+          { label: 'History' }
+        ]
+      }
+    },
+    // Predictions routes
+    {
+      path: '/predictions/analysis',
+      name: 'predictions-analysis',
+      component: () => import('@/views/PredictionsAnalysis.vue'),
+      meta: {
+        title: 'Analyze Articles',
+        breadcrumb: [
+          { label: 'Dashboard', to: '/' },
+          { label: 'Predictions Management', to: '/predictions/analysis' },
+          { label: 'Analyze Articles' }
+        ]
+      }
     },
     {
-      path: '/monitoring/metrics',
-      name: 'monitoring-metrics',
-      component: Dashboard // Temporary redirect to dashboard
+      path: '/predictions/wizard',
+      name: 'predictions-wizard',
+      component: () => import('@/views/PredictionAnalysisWizardView.vue'),
+      meta: {
+        title: 'Prediction Analysis',
+        breadcrumb: [
+          { label: 'Dashboard', to: '/' },
+          { label: 'Predictions Management', to: '/predictions/analysis' },
+          { label: 'Analyze Articles' }
+        ]
+      }
     },
     {
-      path: '/monitoring/logs',
-      name: 'monitoring-logs',
-      component: Dashboard // Temporary redirect to dashboard
+      path: '/predictions/history',
+      name: 'predictions-history',
+      component: () => import('@/views/PredictionsHistory.vue'),
+      meta: {
+        title: 'Prediction History',
+        breadcrumb: [
+          { label: 'Dashboard', to: '/' },
+          { label: 'Predictions Management', to: '/predictions/analysis' },
+          { label: 'Prediction History' }
+        ]
+      }
     },
+    // Analysis Status route
     {
-      path: '/monitoring/alerts',
-      name: 'monitoring-alerts',
-      component: Dashboard // Temporary redirect to dashboard
+      path: '/analysis/status',
+      name: 'analysis-status',
+      component: () => import('@/views/AnalysisStatus.vue'),
+      meta: {
+        title: 'Analysis Status',
+        breadcrumb: [
+          { label: 'Dashboard', to: '/' },
+          { label: 'Analysis Status' }
+        ]
+      }
     },
-    {
-      path: '/config/crawlers',
-      name: 'config-crawlers',
-      component: Dashboard // Temporary redirect to dashboard
-    },
-    {
-      path: '/config/system',
-      name: 'config-system',
-      component: Dashboard // Temporary redirect to dashboard
-    },
-    {
-      path: '/config/preferences',
-      name: 'config-preferences',
-      component: Dashboard // Temporary redirect to dashboard
-    },
-    {
-      path: '/help/docs',
-      name: 'help-docs',
-      component: Dashboard // Temporary redirect to dashboard
-    },
-    {
-      path: '/help/api',
-      name: 'help-api',
-      component: Dashboard // Temporary redirect to dashboard
-    },
-    {
-      path: '/help/about',
-      name: 'help-about',
-      component: Dashboard // Temporary redirect to dashboard
-    },
+    // Theme demo (for development)
     {
       path: '/theme-demo',
       name: 'theme-demo',
-      component: () => import('@/views/ThemeDemo.vue')
+      component: () => import('@/views/ThemeDemo.vue'),
+      meta: {
+        title: 'Theme Demo',
+        breadcrumb: [{ label: 'Theme Demo' }]
+      }
     }
   ]
 })

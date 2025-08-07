@@ -6,6 +6,7 @@ import ai.falsify.crawlers.common.exception.NetworkException;
 import ai.falsify.crawlers.common.exception.PersistenceException;
 import ai.falsify.crawlers.common.model.Article;
 import ai.falsify.crawlers.common.model.ArticleEntity;
+import ai.falsify.crawlers.common.model.AuthorEntity;
 import ai.falsify.crawlers.common.model.CrawlResult;
 import ai.falsify.crawlers.common.service.ContentValidator;
 import ai.falsify.crawlers.common.service.RetryService;
@@ -379,11 +380,22 @@ public class DruckerCrawler {
                 try {
                     // Track database persistence operation
                     Instant dbStart = Instant.now();
-                    ArticleEntity entity = new ArticleEntity();
-                    entity.title = article.title();
-                    entity.url = article.url();
-                    entity.text = article.text();
-                    entity.crawlerSource = crawlerSourceName;
+                    
+                    // Find or create author entity using configured author information with error handling
+                    AuthorEntity author;
+                    try {
+                        author = AuthorEntity.findOrCreate(
+                            config.author().name(), 
+                            config.author().avatarUrl().orElse(null)
+                        );
+                    } catch (Exception authorException) {
+                        LOG.warnf("Failed to create or find author '%s', using unknown author fallback: %s", 
+                                 config.author().name(), authorException.getMessage());
+                        author = AuthorEntity.getUnknownAuthor();
+                    }
+                    
+                    // Create ArticleEntity with author
+                    ArticleEntity entity = new ArticleEntity(article, crawlerSourceName, author);
                     entity.persist();
                     Duration dbDuration = Duration.between(dbStart, Instant.now());
                     metrics.recordDatabaseOperation("article_persist", dbDuration);

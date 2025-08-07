@@ -11,6 +11,7 @@ echo "Starting all services simultaneously:"
 echo "  • crawler-manager: http://localhost:8082 (debug: 5007)"
 echo "  • crawler-caspit: http://localhost:8080 (debug: 5005)"
 echo "  • crawler-drucker: http://localhost:8081 (debug: 5006)"
+echo "  • crawler-drucker: http://localhost:8083 (debug: 5008)"
 echo "  • frontend: http://localhost:5173"
 echo ""
 
@@ -34,16 +35,21 @@ cleanup() {
         echo "  • Stopped crawler-drucker (PID: $DRUCKER_PID)"
     fi
     
+    if [ ! -z "$PREDICTIONS_PID" ]; then
+        kill $PREDICTIONS_PID 2>/dev/null
+        echo "  • Stopped prediction-analysis (PID: $PREDICTIONS_PID)"
+    fi
+    
     if [ ! -z "$FRONTEND_PID" ]; then
         kill $FRONTEND_PID 2>/dev/null
         echo "  • Stopped frontend (PID: $FRONTEND_PID)"
     fi
     
     # Wait for processes to terminate
-    wait $MANAGER_PID $CASPIT_PID $DRUCKER_PID $FRONTEND_PID 2>/dev/null
+    wait $MANAGER_PID $CASPIT_PID $DRUCKER_PID $PREDICTIONS_PID $FRONTEND_PID 2>/dev/null
     
     echo "All services stopped."
-    echo "Log files preserved: manager.log, caspit.log, drucker.log, frontend.log"
+    echo "Log files preserved: manager.log, caspit.log, drucker.log, frontend.log, predictions.log"
     exit 0
 }
 
@@ -51,7 +57,7 @@ cleanup() {
 trap cleanup SIGINT SIGTERM EXIT
 
 # Validate that all modules exist
-for module in "crawler-manager" "crawler-caspit" "crawler-drucker"; do
+for module in "crawler-manager" "crawler-caspit" "crawler-drucker" "prediction-analysis"; do
     if [ ! -d "$module" ]; then
         echo "❌ Error: $module module not found"
         echo "   Make sure you're running this script from the project root directory"
@@ -80,11 +86,13 @@ check_port 8080 "crawler-caspit"
 check_port 8081 "crawler-drucker" 
 check_port 8082 "crawler-manager"
 check_port 5173 "frontend"
+check_port 8083 "prediction-analysis"
 
 # Check if debug ports are available
 check_port 5005 "crawler-caspit debug"
 check_port 5006 "crawler-drucker debug"
 check_port 5007 "crawler-manager debug"
+check_port 5008 "prediction-analysis debug"
 
 # Check if Node.js and npm are installed
 if ! command -v node &> /dev/null; then
@@ -126,6 +134,15 @@ echo "   PID: $DRUCKER_PID"
 # Wait for drucker to start
 sleep 15
 
+# Start prediction-analysis with debug port 5008
+echo "🔧 Starting crawler-drucker on port 8083 (debug: 5008)..."
+mvn quarkus:dev -pl prediction-analysis -Dquarkus.args="" -Ddebug=5008 > predictions.log 2>&1 &
+PREDICTIONS_PID=$!
+echo "   PID: $PREDICTIONS_PID"
+
+# Wait for prediction analysis to start
+sleep 15
+
 # Start crawler-manager with debug port 5007
 echo "🔧 Starting crawler-manager on port 8082 (debug: 5007)..."
 mvn quarkus:dev -pl crawler-manager -Dquarkus.args="--clean" -Ddebug=5007 > manager.log 2>&1 &
@@ -133,7 +150,7 @@ MANAGER_PID=$!
 echo "   PID: $MANAGER_PID"
 
 # Wait for manager to start
-sleep 8
+sleep 15
 
 # Start frontend development server
 echo "🎨 Starting Vue.js frontend on port 5173..."
@@ -144,7 +161,7 @@ cd ../..
 echo "   PID: $FRONTEND_PID"
 
 # Wait for frontend to start
-sleep 4
+sleep 20
 
 echo ""
 echo "✅ All services are starting up!"
@@ -156,6 +173,11 @@ echo "   • Frontend UI: http://localhost:5173"
 echo "   • Backend API: http://localhost:8082"
 echo "   • Dev UI: http://localhost:8082/q/dev/"
 echo "   • Debug Port: 5007"
+echo ""
+echo "🎯 Predictions Analysis:"
+echo "   • Backend API: http://localhost:8083"
+echo "   • Dev UI: http://localhost:8083/q/dev/"
+echo "   • Debug Port: 5008"
 echo ""
 echo "🕷️  Crawler Services:"
 echo "   • Caspit Crawler: http://localhost:8080 (debug: 5005)"
@@ -172,13 +194,15 @@ echo "📋 Log Files:"
 echo "   • manager.log - crawler-manager output"
 echo "   • caspit.log - crawler-caspit output"
 echo "   • drucker.log - crawler-drucker output"
+echo "   • predictions.log - predictions analysis output"
 echo "   • frontend.log - Vue.js frontend output"
 echo ""
 echo "💡 Monitoring Commands:"
-echo "   • Watch all logs: tail -f manager.log caspit.log drucker.log frontend.log"
+echo "   • Watch all logs: tail -f manager.log caspit.log drucker.log frontend.log predictions.log"
 echo "   • Watch specific service: tail -f <service>.log"
 echo ""
 echo "🔧 Debug Ports (for IDE connection):"
+echo "   • Predictions Analysis: 5008"
 echo "   • Crawler Manager: 5007"
 echo "   • Caspit Crawler: 5005"
 echo "   • Drucker Crawler: 5006"
@@ -215,6 +239,14 @@ while true; do
         break
     fi
     
+    if kill -0 $PREDICTIONS_PID 2>/dev/null; then
+        services_running=$((services_running + 1))
+    else
+        echo "❌ predictions-analysis process has stopped unexpectedly"
+        echo "   Check predictions.log for error details"
+        break
+    fi
+    
     if kill -0 $FRONTEND_PID 2>/dev/null; then
         services_running=$((services_running + 1))
     else
@@ -224,7 +256,7 @@ while true; do
     fi
     
     # If all 4 services are running, continue monitoring
-    if [ $services_running -eq 4 ]; then
+    if [ $services_running -eq 5 ]; then
         sleep 10
     else
         break

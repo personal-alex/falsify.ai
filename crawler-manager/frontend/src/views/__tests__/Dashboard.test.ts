@@ -2,19 +2,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { mount, VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import Dashboard from '../Dashboard.vue'
-import CrawlerHealthCard from '@/components/CrawlerHealthCard.vue'
-import { ApiService } from '@/services/api'
-import { HealthWebSocketService } from '@/services/websocket'
-import type { CrawlerConfiguration, HealthStatus } from '@/types/health'
-
-// Mock dependencies
-vi.mock('@/services/api')
-vi.mock('@/services/websocket')
-vi.mock('primevue/usetoast', () => ({
-  useToast: () => ({
-    add: vi.fn()
-  })
-}))
 
 // Mock router
 const mockRouter = {
@@ -24,6 +11,9 @@ const mockRouter = {
 vi.mock('vue-router', () => ({
   useRouter: () => mockRouter
 }))
+
+// Mock fetch for prediction analysis health check
+global.fetch = vi.fn()
 
 describe('Dashboard.vue', () => {
   let wrapper: VueWrapper<any>

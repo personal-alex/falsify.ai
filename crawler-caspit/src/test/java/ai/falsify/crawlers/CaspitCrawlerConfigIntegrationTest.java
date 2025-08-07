@@ -40,6 +40,13 @@ class CaspitCrawlerConfigIntegrationTest {
         assertEquals(2000, config.crawling().scrollDelay());
         assertEquals(5000, config.crawling().connectionTimeout());
         assertEquals(50, config.crawling().minContentLength());
+        
+        // Test Author configuration
+        assertNotNull(config.author());
+        assertEquals("Test Author", config.author().name());
+        assertTrue(config.author().avatarUrl().isPresent());
+        assertEquals("https://test.example.com/avatar.jpg", config.author().avatarUrl().get());
+        assertEquals("Unknown Author", config.author().fallbackName());
     }
 
     @Test
@@ -59,5 +66,11 @@ class CaspitCrawlerConfigIntegrationTest {
         assertTrue(config.crawling().scrollDelay() >= 1000);
         assertTrue(config.crawling().connectionTimeout() >= 5000);
         assertTrue(config.crawling().minContentLength() >= 50);
+        
+        // Test Author configuration validation
+        assertNotNull(config.author().name());
+        assertFalse(config.author().name().trim().isEmpty());
+        assertNotNull(config.author().fallbackName());
+        assertFalse(config.author().fallbackName().trim().isEmpty());
     }
 }

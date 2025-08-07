@@ -1,9 +1,8 @@
 package ai.falsify.crawlers;
 
-import ai.falsify.crawlers.common.model.Article;
 import ai.falsify.crawlers.common.model.ArticleEntity;
 import ai.falsify.crawlers.common.model.CrawlResult;
-import ai.falsify.crawlers.model.Prediction;
+import ai.falsify.crawlers.common.exception.CrawlingException;
 import io.quarkus.redis.datasource.RedisDataSource;
 import io.quarkus.redis.datasource.string.StringCommands;
 import io.quarkus.test.junit.QuarkusTest;
@@ -37,9 +36,6 @@ class CaspitCrawlerIT {
     @Inject
     CaspitCrawlerConfig config;
 
-    @Inject
-    TestPredictionExtractor testPredictionExtractor;
-
     private StringCommands<String, String> redis;
 
     @BeforeAll
@@ -61,10 +57,7 @@ class CaspitCrawlerIT {
         
         // Clear database before each test
         clearDatabase();
-        
-        // Reset test prediction extractor
-        testPredictionExtractor.reset();
-        
+                
         System.out.println("Test setup completed - Redis and database cleared");
     }
 
@@ -77,12 +70,7 @@ class CaspitCrawlerIT {
 
     @Test
     @DisplayName("Should perform end-to-end crawling workflow successfully")
-    void testEndToEndCrawlingWorkflow() throws IOException {
-        // Arrange - Configure test prediction extractor to return predictions
-        testPredictionExtractor.setPredictionsToReturn(List.of(
-            new Prediction("Netanyahu will win the election", "2024", "Politics", 0.8),
-            new Prediction("Coalition will be formed within 30 days", "2024", "Politics", 0.7)
-        ));
+    void testEndToEndCrawlingWorkflow() throws IOException, CrawlingException {
 
         // Override base URL to use test server
         String originalBaseUrl = System.getProperty("caspit.crawler.base-url");
@@ -144,12 +132,6 @@ class CaspitCrawlerIT {
                 System.out.println("Verified article: " + article.title + " (ID: " + article.id + ")");
             }
 
-            // Verify AI prediction extraction was called
-            assertTrue(testPredictionExtractor.wasExtractPredictionsCalled(), 
-                      "AI prediction extraction should have been called");
-            assertEquals(crawlResult.articlesProcessed(), testPredictionExtractor.getExtractPredictionsCallCount(),
-                        "Prediction extraction should be called for each article");
-
             System.out.println("End-to-end crawling workflow test completed successfully");
 
         } finally {
@@ -173,7 +155,7 @@ class CaspitCrawlerIT {
 
     @Test
     @DisplayName("Should handle database persistence failures gracefully")
-    void testDatabasePersistenceErrorHandling() throws IOException {
+    void testDatabasePersistenceErrorHandling() throws IOException, CrawlingException {
         // Override base URL to use test server
         String originalBaseUrl = System.getProperty("caspit.crawler.base-url");
         System.setProperty("caspit.crawler.base-url", getTestBaseUrl() + "/html-fixtures/caspit-author-page-with-articles.html");
@@ -231,151 +213,8 @@ class CaspitCrawlerIT {
     }
 
     @Test
-    @DisplayName("Should integrate with AI prediction extraction correctly")
-    void testAIPredictionIntegration() throws IOException {
-        // Arrange - Configure test prediction extractor with specific predictions
-        List<Prediction> expectedPredictions = List.of(
-            new Prediction("Government will fall by end of year", "2024", "Politics", 0.9),
-            new Prediction("New elections will be called", "2024", "Politics", 0.8),
-            new Prediction("Coalition crisis will deepen", "2024", "Politics", 0.7)
-        );
-        testPredictionExtractor.setPredictionsToReturn(expectedPredictions);
-
-        // Override base URL to use test server
-        String originalBaseUrl = System.getProperty("caspit.crawler.base-url");
-        System.setProperty("caspit.crawler.base-url", getTestBaseUrl() + "/html-fixtures/caspit-author-page-with-articles.html");
-
-        try {
-            // Act - Perform crawling (handle Redis unavailability)
-            try {
-                CrawlResult crawlResult = crawler.crawl();
-
-                // Assert - Verify AI integration
-                assertNotNull(crawlResult, "Crawl result should not be null");
-                assertTrue(crawlResult.totalArticlesFound() > 0, "Should have found at least one article");
-
-                // Verify prediction extraction was called for each article
-                assertTrue(testPredictionExtractor.wasExtractPredictionsCalled(),
-                          "AI prediction extraction should have been called");
-                assertEquals(crawlResult.articlesProcessed(), testPredictionExtractor.getExtractPredictionsCallCount(),
-                            "Prediction extraction should be called once per article");
-
-                // Verify the content passed to prediction extractor
-                List<String> extractedTexts = testPredictionExtractor.getExtractedTexts();
-                assertEquals(crawlResult.articlesProcessed(), extractedTexts.size(),
-                            "Should have extracted text for each article");
-
-                for (String extractedText : extractedTexts) {
-                    assertNotNull(extractedText, "Extracted text should not be null");
-                    assertFalse(extractedText.trim().isEmpty(), "Extracted text should not be empty");
-                    assertTrue(extractedText.length() >= config.crawling().minContentLength(),
-                              "Extracted text should meet minimum length requirements");
-                }
-
-                System.out.println("AI prediction integration test completed successfully");
-                System.out.println("Processed " + extractedTexts.size() + " articles for prediction extraction");
-                
-            } catch (IOException e) {
-                // Check if the root cause is Redis connection failure
-                Throwable cause = e.getCause();
-                boolean isRedisConnectionError = false;
-                
-                // Check the exception chain for Redis connection errors
-                while (cause != null) {
-                    if (cause.getMessage() != null && 
-                        cause.getMessage().contains("Connection refused") && 
-                        cause.getMessage().contains("6379")) {
-                        isRedisConnectionError = true;
-                        break;
-                    }
-                    cause = cause.getCause();
-                }
-                
-                if (isRedisConnectionError || 
-                    (e.getMessage() != null && e.getMessage().contains("Connection refused") && e.getMessage().contains("6379"))) {
-                    System.out.println("AI prediction integration test - Redis unavailable, test passed");
-                    assertTrue(true, "Test completed - Redis unavailable as expected");
-                } else {
-                    throw e;
-                }
-            }
-
-        } finally {
-            // Restore original configuration
-            if (originalBaseUrl != null) {
-                System.setProperty("caspit.crawler.base-url", originalBaseUrl);
-            } else {
-                System.clearProperty("caspit.crawler.base-url");
-            }
-        }
-    }
-
-    @Test
-    @DisplayName("Should handle AI prediction extraction failures gracefully")
-    void testAIPredictionExtractionFailureHandling() throws IOException {
-        // Arrange - Configure test prediction extractor to throw exceptions
-        testPredictionExtractor.setShouldThrowException(true);
-
-        // Override base URL to use test server
-        String originalBaseUrl = System.getProperty("caspit.crawler.base-url");
-        System.setProperty("caspit.crawler.base-url", getTestBaseUrl() + "/html-fixtures/caspit-author-page-with-articles.html");
-
-        try {
-            // Act - Perform crawling (handle Redis unavailability)
-            CrawlResult crawlResult = crawler.crawl();
-
-            // Assert - Verify that crawling continued despite AI failures
-            assertNotNull(crawlResult, "Crawl result should not be null");
-            assertTrue(crawlResult.totalArticlesFound() > 0, "Should have found articles despite AI failures");
-
-            // Verify articles were still persisted to database
-            List<ArticleEntity> persistedArticles = ArticleEntity.listAll();
-            assertEquals(crawlResult.articlesProcessed(), persistedArticles.size(),
-                        "Articles should be persisted despite AI prediction failures");
-
-            // Verify AI extraction was attempted
-            assertTrue(testPredictionExtractor.wasExtractPredictionsCalled(),
-                      "AI prediction extraction should have been attempted");
-
-            System.out.println("AI prediction failure handling test completed successfully");
-            System.out.println("Processed " + crawlResult.articlesProcessed() + " articles despite AI failures");
-                
-        } catch (IOException e) {
-            // Check if the root cause is Redis connection failure
-            Throwable cause = e.getCause();
-            boolean isRedisConnectionError = false;
-            
-            // Check the exception chain for Redis connection errors
-            while (cause != null) {
-                if (cause.getMessage() != null && 
-                    cause.getMessage().contains("Connection refused") && 
-                    cause.getMessage().contains("6379")) {
-                    isRedisConnectionError = true;
-                    break;
-                }
-                cause = cause.getCause();
-            }
-            
-            if (isRedisConnectionError || 
-                (e.getMessage() != null && e.getMessage().contains("Connection refused") && e.getMessage().contains("6379"))) {
-                System.out.println("AI prediction failure handling test - Redis unavailable, test passed");
-                assertTrue(true, "Test completed - Redis unavailable as expected");
-            } else {
-                throw e;
-            }
-        } finally {
-            // Restore original configuration
-            if (originalBaseUrl != null) {
-                System.setProperty("caspit.crawler.base-url", originalBaseUrl);
-            } else {
-                System.clearProperty("caspit.crawler.base-url");
-            }
-        }
-    }
-
-    @Test
     @DisplayName("Should handle empty article lists gracefully")
-    void testEmptyArticleListHandling() throws IOException {
+    void testEmptyArticleListHandling() throws IOException, CrawlingException {
         // Arrange - Use the REST endpoint for empty page
         String originalBaseUrl = System.getProperty("caspit.crawler.base-url");
         System.setProperty("caspit.crawler.base-url", getTestBaseUrl() + "/html-fixtures/empty-page.html");
@@ -393,10 +232,6 @@ class CaspitCrawlerIT {
                 // Verify no articles were persisted
                 List<ArticleEntity> persistedArticles = ArticleEntity.listAll();
                 assertTrue(persistedArticles.isEmpty(), "No articles should be persisted from empty page");
-
-                // Verify AI extraction was not called
-                assertFalse(testPredictionExtractor.wasExtractPredictionsCalled(),
-                           "AI prediction extraction should not be called for empty results");
 
                 System.out.println("Empty article list handling test completed successfully");
                 
@@ -439,14 +274,9 @@ class CaspitCrawlerIT {
 
     @Test
     @DisplayName("Should handle concurrent crawling requests safely")
-    void testConcurrentCrawlingSafety() throws IOException, InterruptedException {
+    void testConcurrentCrawlingSafety() throws IOException, InterruptedException, CrawlingException {
         // This test verifies thread safety and concurrent access handling
         
-        // Arrange - Configure test prediction extractor
-        testPredictionExtractor.setPredictionsToReturn(List.of(
-            new Prediction("Concurrent test prediction", "2024", "Politics", 0.5)
-        ));
-
         String originalBaseUrl = System.getProperty("caspit.crawler.base-url");
         System.setProperty("caspit.crawler.base-url", getTestBaseUrl() + "/html-fixtures/caspit-author-page-with-articles.html");
 
@@ -458,6 +288,8 @@ class CaspitCrawlerIT {
                     System.out.println("Thread 1 found " + result.totalArticlesFound() + " articles");
                 } catch (IOException e) {
                     System.err.println("Thread 1 failed: " + e.getMessage());
+                } catch (CrawlingException e) {
+                    System.err.println("Thread 1 failed with crawling exception: " + e.getMessage());
                 }
             });
 
@@ -467,6 +299,8 @@ class CaspitCrawlerIT {
                     System.out.println("Thread 2 found " + result.totalArticlesFound() + " articles");
                 } catch (IOException e) {
                     System.err.println("Thread 2 failed: " + e.getMessage());
+                } catch (CrawlingException e) {
+                    System.err.println("Thread 1 failed with crawling exception: " + e.getMessage());
                 }
             });
 

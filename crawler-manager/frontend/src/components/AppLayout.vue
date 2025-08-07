@@ -8,6 +8,22 @@
     
     <div class="layout-main-container">
       <div class="layout-main">
+        <!-- Breadcrumb Navigation -->
+        <div class="breadcrumb-container" v-if="showBreadcrumb">
+          <Breadcrumb :model="breadcrumbItems" class="layout-breadcrumb">
+            <template #item="{ item }">
+              <router-link v-if="item.to" :to="item.to" class="breadcrumb-link">
+                <i v-if="item.icon" :class="item.icon"></i>
+                <span>{{ item.label }}</span>
+              </router-link>
+              <span v-else class="breadcrumb-current">
+                <i v-if="item.icon" :class="item.icon"></i>
+                <span>{{ item.label }}</span>
+              </span>
+            </template>
+          </Breadcrumb>
+        </div>
+
         <router-view v-slot="{ Component, route }">
           <transition name="layout" mode="out-in">
             <component :is="Component" :key="route.path" />
@@ -21,12 +37,15 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted } from 'vue'
+import { computed, onMounted, onUnmounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { useLayoutStore } from '@/stores/layout'
 import { useNotifications } from '@/composables/useNotifications'
 import AppTopbar from './AppTopbar.vue'
 import AppSidebar from './AppSidebar.vue'
+import Breadcrumb from 'primevue/breadcrumb'
 
+const route = useRoute()
 const layoutStore = useLayoutStore()
 const { initWebSocket, disconnectWebSocket } = useNotifications()
 
@@ -43,6 +62,23 @@ const {
   setOverlayMenuActive,
   initializeLayout 
 } = layoutStore
+
+// Breadcrumb navigation
+const showBreadcrumb = computed(() => {
+  const breadcrumb = route.meta?.breadcrumb as any[]
+  return breadcrumb && breadcrumb.length > 1
+})
+
+const breadcrumbItems = computed(() => {
+  const breadcrumb = route.meta?.breadcrumb as any[]
+  if (!breadcrumb) return []
+  
+  return breadcrumb.map((item: any, index: number) => ({
+    ...item,
+    // Don't make the last item clickable
+    to: index === breadcrumb.length - 1 ? undefined : item.to
+  }))
+})
 
 const hideMenu = () => {
   setOverlayMenuActive(false)
@@ -144,6 +180,61 @@ onUnmounted(() => {
   overflow-y: auto;
 }
 
+.breadcrumb-container {
+  background-color: var(--surface-card);
+  border-bottom: 1px solid var(--surface-border);
+  padding: 1rem 2rem;
+  margin-bottom: 0;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.layout-breadcrumb {
+  :deep(.p-breadcrumb) {
+    background: transparent;
+    border: none;
+    padding: 0;
+  }
+
+  :deep(.p-breadcrumb-list) {
+    margin: 0;
+    padding: 0;
+  }
+
+  .breadcrumb-link {
+    color: var(--primary-color);
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    transition: background-color 0.15s;
+
+    &:hover {
+      background-color: var(--surface-hover);
+    }
+
+    i {
+      font-size: 0.875rem;
+    }
+  }
+
+  .breadcrumb-current {
+    color: var(--text-color);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0.5rem;
+    font-weight: 500;
+
+    i {
+      font-size: 0.875rem;
+    }
+  }
+}
+
 .layout-mask {
   position: fixed;
   top: 0;
@@ -204,6 +295,10 @@ onUnmounted(() => {
     padding-top: 5rem;
     height: calc(100vh - 5rem);
   }
+
+  .breadcrumb-container {
+    padding: 0.75rem 1.5rem;
+  }
 }
 
 @media screen and (max-width: 575px) {
@@ -221,6 +316,10 @@ onUnmounted(() => {
   .layout-main {
     padding-top: 4rem;
     height: calc(100vh - 4rem);
+  }
+
+  .breadcrumb-container {
+    padding: 0.5rem 1rem;
   }
 }
 </style>

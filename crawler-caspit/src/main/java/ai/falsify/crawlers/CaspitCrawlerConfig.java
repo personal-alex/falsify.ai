@@ -7,6 +7,7 @@ import org.jboss.logging.Logger;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Configuration properties for the Ben Caspit crawler using Quarkus declarative approach.
@@ -66,6 +67,16 @@ public class CaspitCrawlerConfig {
     @ConfigProperty(name = "caspit.crawler.crawling.early-termination-enabled", defaultValue = "true")
     boolean crawlingEarlyTerminationEnabled;
 
+    // Author metadata configuration
+    @ConfigProperty(name = "caspit.crawler.author.name", defaultValue = "Unknown Author")
+    String authorName;
+
+    @ConfigProperty(name = "caspit.crawler.author.avatar-url")
+    Optional<String> authorAvatarUrl;
+
+    @ConfigProperty(name = "caspit.crawler.author.fallback-name", defaultValue = "Unknown Author")
+    String authorFallbackName;
+
     // Getter methods for base configuration
     public String baseUrl() {
         return baseUrl;
@@ -119,6 +130,11 @@ public class CaspitCrawlerConfig {
         return new CrawlingConfig();
     }
 
+    // Author configuration getters
+    public AuthorConfig author() {
+        return new AuthorConfig();
+    }
+
     public class CrawlingConfig {
         public int pageDelay() {
             return crawlingPageDelay;
@@ -138,6 +154,20 @@ public class CaspitCrawlerConfig {
 
         public boolean earlyTerminationEnabled() {
             return crawlingEarlyTerminationEnabled;
+        }
+    }
+
+    public class AuthorConfig {
+        public String name() {
+            return authorName != null && !authorName.trim().isEmpty() ? authorName : authorFallbackName;
+        }
+
+        public Optional<String> avatarUrl() {
+            return authorAvatarUrl;
+        }
+
+        public String fallbackName() {
+            return authorFallbackName;
         }
     }
 
@@ -161,6 +191,9 @@ public class CaspitCrawlerConfig {
             
             // Validate crawling behavior configurations
             validateCrawlingConfigurations();
+            
+            // Validate author metadata configurations
+            validateAuthorConfigurations();
             
             LOG.info("Ben Caspit crawler configuration validation completed successfully");
             logConfigurationSummary();
@@ -281,6 +314,40 @@ public class CaspitCrawlerConfig {
     }
     
     /**
+     * Validate author metadata configuration values
+     */
+    private void validateAuthorConfigurations() {
+        // Validate author name
+        if (authorName == null || authorName.trim().isEmpty()) {
+            LOG.warnf("Author name is not configured, using fallback: %s", authorFallbackName);
+        } else if (authorName.length() > 255) {
+            throw new IllegalArgumentException("Author name is too long (max 255 characters). Current length: " + authorName.length());
+        }
+        
+        // Validate fallback name
+        if (authorFallbackName == null || authorFallbackName.trim().isEmpty()) {
+            throw new IllegalArgumentException("Author fallback name cannot be empty");
+        }
+        if (authorFallbackName.length() > 255) {
+            throw new IllegalArgumentException("Author fallback name is too long (max 255 characters). Current length: " + authorFallbackName.length());
+        }
+        
+        // Validate avatar URL if provided
+        if (authorAvatarUrl.isPresent()) {
+            String avatarUrl = authorAvatarUrl.get();
+            if (avatarUrl.length() > 1000) {
+                throw new IllegalArgumentException("Author avatar URL is too long (max 1000 characters). Current length: " + avatarUrl.length());
+            }
+            if (!avatarUrl.startsWith("http://") && !avatarUrl.startsWith("https://")) {
+                LOG.warnf("Author avatar URL does not start with http:// or https://: %s", avatarUrl);
+            }
+        }
+        
+        LOG.debugf("Author configuration validation passed - name: %s, avatarUrl: %s, fallback: %s", 
+                  authorName, authorAvatarUrl.orElse("not configured"), authorFallbackName);
+    }
+    
+    /**
      * Log a summary of the current configuration for monitoring and debugging
      */
     private void logConfigurationSummary() {
@@ -293,6 +360,8 @@ public class CaspitCrawlerConfig {
                  webdriverImplicitWait, webdriverElementWait);
         LOG.infof("  Crawling: pageDelay=%dms, scrollDelay=%dms, connectionTimeout=%dms, minContentLength=%d, earlyTermination=%s", 
                  crawlingPageDelay, crawlingScrollDelay, crawlingConnectionTimeout, crawlingMinContentLength, crawlingEarlyTerminationEnabled);
+        LOG.infof("  Author: name=%s, avatarUrl=%s, fallback=%s", 
+                 authorName, authorAvatarUrl.orElse("not configured"), authorFallbackName);
     }
     
     /**
@@ -323,6 +392,9 @@ public class CaspitCrawlerConfig {
         currentConfig.put("connectionTimeout", crawlingConnectionTimeout);
         currentConfig.put("minContentLength", crawlingMinContentLength);
         currentConfig.put("earlyTerminationEnabled", crawlingEarlyTerminationEnabled);
+        currentConfig.put("authorName", authorName);
+        currentConfig.put("authorAvatarUrl", authorAvatarUrl.orElse("not configured"));
+        currentConfig.put("authorFallbackName", authorFallbackName);
         
         report.put("configuration", currentConfig);
         report.put("timestamp", java.time.LocalDateTime.now().toString());

@@ -110,9 +110,9 @@ class DruckerCrawlerTest {
     void testEarlyTerminationFeatureConfiguration() {
         // Test that the early termination feature is properly configured
         assertTrue(config.enableEarlyTermination(), "Early termination should be enabled by default");
-        assertEquals(1, config.emptyPageThreshold(), "Empty page threshold should be 1 by default");
-        assertEquals(10, config.maxPages(), "Max pages should be 10 by default");
-        assertEquals(Duration.ofSeconds(2), config.pageDelay(), "Page delay should be 2 seconds by default");
+        assertEquals(2, config.emptyPageThreshold(), "Empty page threshold should be 2 by default (from test config)");
+        assertEquals(5, config.maxPages(), "Max pages should be 5 by default (from test config)");
+        assertEquals(Duration.ofSeconds(1), config.pageDelay(), "Page delay should be 1 second by default (from test config)");
     }
 
     @Test
@@ -126,5 +126,37 @@ class DruckerCrawlerTest {
         
         assertTrue(config.emptyPageThreshold() > 0, 
             "Empty page threshold should be positive for early termination to work");
+    }
+
+    @Test
+    void testAuthorConfiguration() {
+        // Test that author configuration is properly loaded and accessible
+        assertNotNull(config.author(), "Author configuration should not be null");
+        assertNotNull(config.author().name(), "Author name should not be null");
+        assertFalse(config.author().name().trim().isEmpty(), "Author name should not be empty");
+        
+        // Test that author configuration has expected values from test properties
+        assertEquals("Test Drucker Author", config.author().name(), "Author name should match test configuration");
+        assertTrue(config.author().avatarUrl().isPresent(), "Author avatar URL should be present in test configuration");
+        assertEquals("https://test-drucker.example.com/avatar.jpg", config.author().avatarUrl().get(), 
+                    "Author avatar URL should match test configuration");
+        assertEquals("Unknown Author", config.author().fallbackName(), "Fallback author name should be 'Unknown Author'");
+    }
+
+    @Test
+    void testAuthorConfigurationFallback() {
+        // Test that author configuration provides proper fallback behavior
+        String authorName = config.author().name();
+        String fallbackName = config.author().fallbackName();
+        
+        // Verify that if author name is empty, fallback would be used
+        assertNotNull(authorName, "Author name should not be null");
+        assertNotNull(fallbackName, "Fallback name should not be null");
+        assertFalse(fallbackName.trim().isEmpty(), "Fallback name should not be empty");
+        
+        // Test that the configuration method handles empty names correctly
+        // (This tests the logic in AuthorConfig.name() method)
+        assertTrue(authorName.equals("Test Drucker Author") || authorName.equals(fallbackName),
+                  "Author name should be either the configured name or fallback");
     }
 }

@@ -41,6 +41,10 @@ public class CrawlerConfiguration {
     @NotNull(message = "Enabled flag cannot be null")
     public Boolean enabled;
     
+    // Author information
+    public String authorName;
+    public String authorAvatarUrl;
+    
     public CrawlerConfiguration() {
         // Default constructor for Jackson
     }
@@ -56,6 +60,21 @@ public class CrawlerConfiguration {
         this.crawlEndpoint = crawlEndpoint;
         this.statusEndpoint = statusEndpoint;
         this.enabled = enabled;
+    }
+    
+    public CrawlerConfiguration(String id, String name, String baseUrl, Integer port, 
+                              String healthEndpoint, String crawlEndpoint, String statusEndpoint, 
+                              Boolean enabled, String authorName, String authorAvatarUrl) {
+        this.id = id;
+        this.name = name;
+        this.baseUrl = baseUrl;
+        this.port = port;
+        this.healthEndpoint = healthEndpoint;
+        this.crawlEndpoint = crawlEndpoint;
+        this.statusEndpoint = statusEndpoint;
+        this.enabled = enabled;
+        this.authorName = authorName;
+        this.authorAvatarUrl = authorAvatarUrl;
     }
     
     /**
@@ -93,6 +112,8 @@ public class CrawlerConfiguration {
                 ", crawlEndpoint='" + crawlEndpoint + '\'' +
                 ", statusEndpoint='" + statusEndpoint + '\'' +
                 ", enabled=" + enabled +
+                ", authorName='" + authorName + '\'' +
+                ", authorAvatarUrl='" + authorAvatarUrl + '\'' +
                 '}';
     }
 }

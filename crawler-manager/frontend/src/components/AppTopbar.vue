@@ -4,7 +4,7 @@
     <div class="layout-topbar-logo">
       <router-link to="/" class="layout-topbar-logo-link">
         <i class="pi pi-sitemap layout-topbar-logo-icon"></i>
-        <span class="layout-topbar-logo-text">Crawler Manager</span>
+        <span class="layout-topbar-logo-text">Falsify.AI</span>
       </router-link>
     </div>
     
@@ -21,6 +21,27 @@
         <i class="pi pi-bars"></i>
       </button>
       
+      <!-- Dynamic Context Actions -->
+      <div class="layout-topbar-context-actions" v-if="hasContextActions">
+        <div class="context-actions-separator"></div>
+        <div class="context-actions-container">
+          <Button
+            v-for="action in contextActions"
+            :key="action.id"
+            :icon="action.icon"
+            :label="action.label"
+            :severity="action.severity || 'primary'"
+            :outlined="action.outlined"
+            :loading="action.loading"
+            :disabled="action.disabled"
+            :class="['context-action-button', `action-${action.id}`]"
+            @click="action.command"
+            v-tooltip.bottom="action.tooltip"
+            size="small"
+          />
+        </div>
+      </div>
+
       <!-- Action Items Section -->
       <div class="layout-topbar-menu-section">
         <!-- Connection Status Indicator -->
@@ -86,6 +107,8 @@ import { useLayoutStore } from '@/stores/layout'
 import { useThemeStore } from '@/stores/theme'
 import { useCrawlerStore } from '@/stores/crawler'
 import { useNotificationStore } from '@/stores/notification'
+import { useTopBarStore } from '@/stores/topbar'
+import Button from 'primevue/button'
 
 // Define emits
 const emit = defineEmits<{
@@ -98,12 +121,17 @@ const layoutStore = useLayoutStore()
 const themeStore = useThemeStore()
 const crawlerStore = useCrawlerStore()
 const notificationStore = useNotificationStore()
+const topBarStore = useTopBarStore()
 
 // Computed properties
 const currentTheme = computed(() => themeStore.currentMode)
 const isOnline = computed(() => crawlerStore.isOnline)
 const notificationCount = computed(() => notificationStore.unreadCount)
 const isConfigSidebarVisible = computed(() => layoutStore.isConfigSidebarVisible)
+
+// TopBar context actions
+const contextActions = computed(() => topBarStore.contextActions)
+const hasContextActions = computed(() => topBarStore.hasActions)
 
 // Theme-related computed properties
 const themeIcon = computed(() => 
@@ -242,11 +270,101 @@ const toggleConfigSidebar = () => {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  flex: 1;
+  justify-content: flex-end;
 }
 
 .layout-menu-button {
   display: none;
   margin-right: 1rem;
+}
+
+// Dynamic Context Actions Section
+.layout-topbar-context-actions {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  justify-content: center;
+  max-width: 600px;
+  margin: 0 2rem;
+}
+
+.context-actions-separator {
+  width: 1px;
+  height: 2rem;
+  background-color: var(--surface-border);
+  margin-right: 1.5rem;
+}
+
+.context-actions-container {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.context-action-button {
+  :deep(.p-button) {
+    font-size: 0.875rem;
+    padding: 0.5rem 1rem;
+    border-radius: var(--border-radius);
+    transition: all var(--transition-duration);
+    
+    &:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+    
+    &:active {
+      transform: translateY(0);
+    }
+    
+    .p-button-icon {
+      margin-right: 0.5rem;
+    }
+  }
+  
+  // Specific action button styles
+  &.action-start-crawl,
+  &.action-start-all-healthy,
+  &.action-analyze-articles {
+    :deep(.p-button) {
+      background: linear-gradient(135deg, var(--green-500), var(--green-600));
+      border-color: var(--green-500);
+      
+      &:hover {
+        background: linear-gradient(135deg, var(--green-600), var(--green-700));
+        border-color: var(--green-600);
+      }
+    }
+  }
+  
+  &.action-stop-all-running {
+    :deep(.p-button) {
+      background: linear-gradient(135deg, var(--orange-500), var(--orange-600));
+      border-color: var(--orange-500);
+      
+      &:hover {
+        background: linear-gradient(135deg, var(--orange-600), var(--orange-700));
+        border-color: var(--orange-600);
+      }
+    }
+  }
+  
+  &.action-health-check,
+  &.action-sync-configuration,
+  &.action-refresh-articles {
+    :deep(.p-button) {
+      background: linear-gradient(135deg, var(--blue-500), var(--blue-600));
+      border-color: var(--blue-500);
+      
+      &:hover {
+        background: linear-gradient(135deg, var(--blue-600), var(--blue-700));
+        border-color: var(--blue-600);
+      }
+    }
+  }
 }
 
 .layout-topbar-menu-section {
@@ -477,6 +595,31 @@ const toggleConfigSidebar = () => {
       font-size: 1.125rem;
     }
   }
+  
+  // Context actions responsive behavior
+  .layout-topbar-context-actions {
+    margin: 0 1rem;
+    max-width: 400px;
+  }
+  
+  .context-actions-container {
+    gap: 0.5rem;
+  }
+  
+  .context-action-button {
+    :deep(.p-button) {
+      font-size: 0.8125rem;
+      padding: 0.375rem 0.75rem;
+      
+      .p-button-label {
+        display: none;
+      }
+      
+      .p-button-icon {
+        margin-right: 0;
+      }
+    }
+  }
 }
 
 @media screen and (min-width: 992px) {
@@ -496,6 +639,11 @@ const toggleConfigSidebar = () => {
   
   .layout-topbar-menu-section {
     gap: 0;
+  }
+  
+  // Hide context actions on small screens
+  .layout-topbar-context-actions {
+    display: none;
   }
 }
 

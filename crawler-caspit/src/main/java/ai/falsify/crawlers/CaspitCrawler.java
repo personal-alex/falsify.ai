@@ -4,11 +4,13 @@ import ai.falsify.crawlers.common.exception.ContentValidationException;
 import ai.falsify.crawlers.common.exception.CrawlingException;
 import ai.falsify.crawlers.common.model.Article;
 import ai.falsify.crawlers.common.model.ArticleEntity;
+import ai.falsify.crawlers.common.model.AuthorEntity;
 import ai.falsify.crawlers.common.model.CrawlResult;
 import ai.falsify.crawlers.common.service.ContentValidator;
 import ai.falsify.crawlers.common.service.RetryService;
 import ai.falsify.crawlers.common.service.redis.DeduplicationService;
-import ai.falsify.crawlers.model.Prediction;
+import ai.falsify.crawlers.CaspitPageNavigator;
+import ai.falsify.crawlers.CaspitCrawlerConfig;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -33,29 +35,26 @@ public class CaspitCrawler {
     private final ContentValidator contentValidator;
     private final RetryService retryService;
     private final CaspitPageNavigator navigator;
-    private final PredictionExtractor predictionExtractor;
     private final ObjectMapper objectMapper;
     private final CaspitCrawlerConfig config;
 
     @Inject
     public CaspitCrawler(DeduplicationService deduplicationService, ContentValidator contentValidator, 
                         RetryService retryService, CaspitPageNavigator navigator, 
-                        PredictionExtractor predictionExtractor, CaspitCrawlerConfig config) {
+                        CaspitCrawlerConfig config) {
         this.deduplicationService = deduplicationService;
         this.contentValidator = contentValidator;
         this.retryService = retryService;
         this.navigator = navigator;
-        this.predictionExtractor = predictionExtractor;
         this.objectMapper = new ObjectMapper();
         this.config = config;
     }
 
     /**
      * Crawl Ben Caspit articles, fetch new articles (deduplicated via Redis) and persist them.
-     * A transactional context is required for PanacheEntity.persist().
+     * Uses separate transactions for each article to prevent cascading failures.
      */
-    @Transactional
-    public CrawlResult crawl() throws IOException {
+    public CrawlResult crawl() throws IOException, CrawlingException {
         LOG.infof("Starting crawl from: %s", config.baseUrl());
         List<Article> articles = new ArrayList<>();
         long startTime = System.currentTimeMillis();
@@ -116,7 +115,7 @@ public class CaspitCrawler {
                     try {
                         isNew = retryService.executeWithRetry(() -> {
                             return deduplicationService.isNewUrl(config.crawlerSource(), cleanUrl);
-                        }, "dedup_check_" + cleanUrl, Exception.class);
+                        }, "dedup_check_" + cleanUrl, RuntimeException.class);
                     } catch (CrawlingException redisException) {
                         LOG.warnf("Redis deduplication check failed for URL: %s - Error: %s. Proceeding without deduplication.", 
                                  cleanUrl, redisException.getMessage());
@@ -180,17 +179,7 @@ public class CaspitCrawler {
                             articles.remove(article);
                             
                             // Don't throw exception here - continue processing other articles
-                            // The transaction will handle rollback for this specific article
                             continue;
-                        }
-
-                        // Extract predictions using AI with error handling
-                        try {
-                            extractAndStorePredictions(article);
-                        } catch (Exception predictionException) {
-                            LOG.warnf("Prediction extraction failed for article: %s - Error: %s. Article was still persisted successfully.", 
-                                     article.title(), predictionException.getMessage());
-                            // Don't fail the entire crawl for prediction extraction failures
                         }
                         
                     } else {
@@ -402,7 +391,7 @@ public class CaspitCrawler {
 
     /**
      * Persist an article to the database using retry logic and the common ArticleEntity structure.
-     * Includes validation and proper error handling for database operations.
+     * Uses a separate transaction for each article to prevent cascading failures.
      * 
      * @param article The article to persist
      * @throws RuntimeException if persistence fails after retries
@@ -423,7 +412,7 @@ public class CaspitCrawler {
                     throw new IllegalArgumentException("Article text cannot be null or empty");
                 }
                 
-                // Call the transactional persistence method
+                // Call the transactional persistence method in a separate transaction
                 return persistArticleToDatabase(article);
             }, "persist_article_" + article.url(), Exception.class);
             
@@ -433,107 +422,106 @@ public class CaspitCrawler {
     }
 
     /**
-     * Actual database persistence method with transaction context.
-     * This method is called from within the retry logic but maintains its own transaction.
+     * Actual database persistence method with its own transaction boundary.
+     * This method uses a separate transaction to isolate failures.
      * 
      * @param article The article to persist
      * @return null (for compatibility with retry service)
      * @throws RuntimeException if persistence fails
      */
-    @Transactional(Transactional.TxType.REQUIRES_NEW)
+    @Transactional
     public Object persistArticleToDatabase(Article article) {
         LOG.debugf("Starting transactional persistence for article: %s", article.title());
         
         try {
             // Check if article already exists by URL to prevent duplicates
+            LOG.debugf("Checking for existing article with URL: %s", article.url());
             ArticleEntity existingArticle = ArticleEntity.find("url", article.url()).firstResult();
             if (existingArticle != null) {
                 LOG.warnf("Article with URL already exists in database, skipping: %s", article.url());
                 return null;
             }
             
-            // Create and populate new ArticleEntity with crawler source
-            ArticleEntity entity = new ArticleEntity(article, config.crawlerSource());
+            // Find or create author entity using configured author information with error handling
+            AuthorEntity author;
+            try {
+                LOG.debugf("Finding or creating author: %s", config.author().name());
+                author = AuthorEntity.findOrCreate(
+                    config.author().name(), 
+                    config.author().avatarUrl().orElse(null)
+                );
+                LOG.debugf("Successfully obtained author: %s (ID: %d)", author.name, author.id);
+            } catch (Exception authorException) {
+                LOG.warnf("Failed to create or find author '%s', using unknown author fallback: %s", 
+                         config.author().name(), authorException.getMessage());
+                LOG.debugf("Creating unknown author fallback");
+                author = AuthorEntity.getUnknownAuthor();
+                LOG.debugf("Successfully obtained unknown author: %s (ID: %d)", author.name, author.id);
+            }
             
-            LOG.debugf("Attempting to persist article: title='%s', url='%s', text_length=%d, crawler_source='%s'", 
-                      entity.title, entity.url, entity.text.length(), entity.crawlerSource);
+            // Validate that text and url are not null
+            if (article.text() == null || article.url() == null) {
+                throw new IllegalStateException("Article's text and URL cannot be null for article persistence");
+            }
+            
+            // Validate that text and url are not empty
+            if (article.text().isEmpty() || article.url().isEmpty()) {
+                throw new IllegalStateException("Article's text and URL cannot be empty for article persistence");
+            }
+            
+            // Create and populate new ArticleEntity with crawler source and author
+            ArticleEntity entity = new ArticleEntity(article, config.crawlerSource(), author);
+            
+            LOG.debugf("Attempting to persist article: title='%s', url='%s', text_length=%d, crawler_source='%s', author='%s'", 
+                      entity.title, entity.url, entity.text.length(), entity.crawlerSource, entity.author.name);
             
             // Persist to database
             entity.persist();
             
-            LOG.infof("Successfully persisted article with ID: %d, URL: %s", entity.id, entity.url);
+            LOG.infof("Successfully persisted article with ID: %d, URL: %s, Author: %s", 
+                     entity.id, entity.url, entity.author.name);
             return null;
             
         } catch (jakarta.persistence.PersistenceException e) {
             // Handle database constraint violations and other persistence issues
+            LOG.errorf("Database persistence exception for article: %s - %s", article.title(), e.getMessage());
+            if (e.getCause() != null) {
+                LOG.debugf("Root cause: %s", e.getCause().getMessage());
+            }
+            
             if (e.getMessage() != null && e.getMessage().contains("unique constraint")) {
                 LOG.warnf("Duplicate article detected during persistence (unique constraint violation): %s", article.url());
                 // This is not a critical error, just log and continue
                 return null;
             }
-            LOG.errorf("Database persistence exception for article: %s - %s", article.title(), e.getMessage());
             throw new RuntimeException("Database persistence failed due to constraint violation", e);
         } catch (Exception e) {
             LOG.errorf("Unexpected database error during persistence for article: %s - %s", article.title(), e.getMessage());
+            if (e.getCause() != null) {
+                LOG.debugf("Root cause: %s", e.getCause().getMessage());
+            }
+            LOG.debugf("Exception type: %s", e.getClass().getSimpleName());
             throw new RuntimeException("Failed to persist article to database", e);
         }
     }
 
     /**
-     * Extract predictions from article content using AI and handle storage.
-     * Implements requirements 2.1, 2.2, 2.3, and 2.4 for AI prediction extraction integration.
-     * 
-     * @param article The article to extract predictions from
+     * Resets the circuit breaker to allow retry operations to resume.
+     * This method can be called when external dependencies (like Redis) are restored.
      */
-    private void extractAndStorePredictions(Article article) {
-        LOG.debugf("Starting AI prediction extraction for article: %s", article.title());
-        
-        try {
-            // Requirement 2.1: Use AI prediction extraction to identify predictions within the content
-            List<Prediction> predictions = predictionExtractor.extractPredictions(article.text());
-            
-            if (predictions != null && !predictions.isEmpty()) {
-                // Requirement 2.2: Store predictions using the existing Prediction model structure
-                LOG.infof("AI prediction extraction successful - found %d predictions in article: %s", 
-                         predictions.size(), article.title());
-                
-                // Log details about each prediction for monitoring and debugging
-                for (int i = 0; i < predictions.size(); i++) {
-                    Prediction prediction = predictions.get(i);
-                    LOG.debugf("Prediction %d extracted from article '%s': %s", 
-                              i + 1, article.title(), 
-                              prediction.toString().length() > 200 ? 
-                                  prediction.toString().substring(0, 200) + "..." : 
-                                  prediction.toString());
-                }
-                
-                // Note: Actual prediction persistence is handled by the PredictionExtractor implementation
-                // or a separate service, following the existing system architecture patterns.
-                // The predictions are returned here for potential further processing or validation.
-                
-            } else {
-                // Requirement 2.3: Log when no predictions are found and continue processing
-                LOG.infof("AI prediction extraction completed - no predictions found in article: %s", article.title());
-            }
-            
-        } catch (Exception e) {
-            // Requirement 2.4: Handle AI prediction extraction failures gracefully
-            LOG.warnf("AI prediction extraction failed for article: %s - Error: %s", 
-                     article.title(), e.getMessage());
-            
-            // Log additional context for debugging AI service issues
-            if (e.getCause() != null) {
-                LOG.debugf("Root cause of AI prediction extraction failure: %s", e.getCause().getMessage());
-            }
-            
-            // Log article details that might help with debugging
-            LOG.debugf("Failed article details - URL: %s, Content length: %d characters", 
-                      article.url(), article.text() != null ? article.text().length() : 0);
-            
-            // Continue processing other articles - do not throw exception
-            // This ensures that AI service failures don't stop the entire crawling process
-        }
+    public void resetCircuitBreaker() {
+        retryService.resetCircuitBreaker();
+        LOG.info("Circuit breaker reset for CaspitCrawler");
     }
+
+    /**
+     * Gets the current circuit breaker status for monitoring.
+     */
+    public RetryService.CircuitBreakerStatus getCircuitBreakerStatus() {
+        return retryService.getCircuitBreakerStatus();
+    }
+
+
 
 
 }

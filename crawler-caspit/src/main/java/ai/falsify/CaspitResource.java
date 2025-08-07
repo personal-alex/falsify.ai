@@ -1,6 +1,7 @@
 package ai.falsify;
 
 import ai.falsify.crawlers.CaspitCrawler;
+import ai.falsify.crawlers.common.exception.CrawlingException;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
@@ -155,6 +156,25 @@ public class CaspitResource {
                                                  errorMessage);
                     
                     throw new RuntimeException(ioException);
+
+                } catch (CrawlingException crawlingException) {
+                    // Handle crawling-specific errors (deduplication, content validation, etc.)
+                    long executionTime = System.currentTimeMillis() - crawlStartTime;
+                    String errorMessage = String.format("Crawl error after %d ms: %s",
+                            executionTime, crawlingException.getMessage());
+
+                    lastCrawlStatus.set("FAILED_CRAWLING");
+                    lastCrawlResult.set(errorMessage);
+                    lastArticleCount.set(0);
+
+                    LOG.errorf("Crawl [%s] failed with crawling error: %s", crawlId, crawlingException.getMessage(), crawlingException);
+                    
+                    // Report failure to manager
+                    callbackService.reportFailure(crawlRequest != null ? crawlRequest.callbackUrl : null,
+                                                 crawlRequest != null ? crawlRequest.jobId : null,
+                                                 errorMessage);
+                    
+                    throw new RuntimeException(crawlingException);
 
                 } catch (IllegalArgumentException argException) {
                     // Handle configuration or argument errors
@@ -447,7 +467,7 @@ public class CaspitResource {
      * Execute crawl with proper CDI context and transaction activation
      */
     @ActivateRequestContext
-    public ai.falsify.crawlers.common.model.CrawlResult executeCrawlWithContext() throws IOException {
+    public ai.falsify.crawlers.common.model.CrawlResult executeCrawlWithContext() throws IOException, CrawlingException {
         return crawler.crawl();
     }
 

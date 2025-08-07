@@ -29,7 +29,15 @@ public class GlobalExceptionHandler implements ExceptionMapper<Exception> {
         Response.Status status = Response.Status.INTERNAL_SERVER_ERROR;
         String errorType = "INTERNAL_SERVER_ERROR";
         
-        if (exception instanceof IllegalArgumentException) {
+        if (exception instanceof jakarta.ws.rs.NotFoundException) {
+            status = Response.Status.NOT_FOUND;
+            errorType = "NOT_FOUND";
+        } else if (exception instanceof jakarta.ws.rs.WebApplicationException) {
+            // Handle other JAX-RS exceptions
+            jakarta.ws.rs.WebApplicationException webEx = (jakarta.ws.rs.WebApplicationException) exception;
+            status = Response.Status.fromStatusCode(webEx.getResponse().getStatus());
+            errorType = status.name();
+        } else if (exception instanceof IllegalArgumentException) {
             status = Response.Status.BAD_REQUEST;
             errorType = "BAD_REQUEST";
         } else if (exception instanceof SecurityException) {

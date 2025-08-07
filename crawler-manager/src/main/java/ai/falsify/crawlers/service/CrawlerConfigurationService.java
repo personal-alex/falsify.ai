@@ -156,6 +156,10 @@ public class CrawlerConfigurationService {
         String statusEndpoint = getRequiredProperty(prefix + "status-endpoint");
         Boolean enabled = config.getOptionalValue(prefix + "enabled", Boolean.class).orElse(true);
         
+        // Load author information (optional)
+        String authorName = config.getOptionalValue(prefix + "author-name", String.class).orElse(null);
+        String authorAvatarUrl = config.getOptionalValue(prefix + "author-avatar-url", String.class).orElse(null);
+        
         // Extract port from base URL if not explicitly configured
         Integer port = extractPortFromUrl(baseUrl);
         
@@ -167,7 +171,9 @@ public class CrawlerConfigurationService {
                 healthEndpoint,
                 crawlEndpoint,
                 statusEndpoint,
-                enabled
+                enabled,
+                authorName,
+                authorAvatarUrl
         );
     }
     

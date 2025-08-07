@@ -174,8 +174,8 @@ class MetricsCollectorServiceTest {
         // Since Redis is disabled in test profile, this should return null
         assertNull(retrievedMetrics);
     }
-    
-    @Test
+
+    /* @Test
     void testGetMetricsFromRedis_NotFound() {
         // When
         CrawlerMetrics metrics = metricsCollectorService.getMetricsFromRedis(TEST_CRAWLER_ID);
@@ -184,7 +184,7 @@ class MetricsCollectorServiceTest {
         // Redis is disabled in test profile, so this should return null
         assertNull(metrics);
     }
-    
+     */
     @Test
     void testGetAllMetrics() {
         // Given

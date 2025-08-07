@@ -9,7 +9,7 @@
       <div class="sidebar-header">
         <div class="sidebar-logo">
           <i class="pi pi-sitemap sidebar-logo-icon"></i>
-          <span class="sidebar-logo-text">Crawler Manager</span>
+          <span class="sidebar-logo-text">Falsify.AI</span>
         </div>
         <Button
           v-if="layoutStore.isMobile"
@@ -93,7 +93,7 @@ const connectionStatusText = computed(() =>
   crawlerStore.isOnline ? 'Connected' : 'Offline'
 )
 
-// Enhanced menu items with better hierarchical structure and real-time badges
+// Updated menu structure with Predictions management section as per design requirements
 const menuItems = computed<MenuItem[]>(() => [
   {
     label: 'Dashboard',
@@ -104,209 +104,47 @@ const menuItems = computed<MenuItem[]>(() => [
     separator: true
   },
   {
-    label: 'Crawler Management',
+    label: 'Crawlers Management',
     icon: 'pi pi-fw pi-sitemap',
     items: [
       {
-        label: 'Overview',
-        icon: 'pi pi-fw pi-eye',
-        to: '/crawlers',
+        label: 'Management',
+        icon: 'pi pi-fw pi-cog',
+        to: '/crawlers/management',
         badge: crawlerStore.totalCrawlers > 0 ? crawlerStore.totalCrawlers.toString() : undefined,
         badgeClass: 'p-badge-info'
       },
       {
-        label: 'Active Crawls',
-        icon: 'pi pi-fw pi-play',
-        to: '/crawlers/active',
-        badge: crawlerStore.activeCrawlers > 0 ? crawlerStore.activeCrawlers.toString() : undefined,
-        badgeClass: crawlerStore.activeCrawlers > 0 ? 'p-badge-success' : undefined
-      },
-      {
-        label: 'Health Monitor',
-        icon: 'pi pi-fw pi-heart',
-        to: '/crawlers/health',
-        badge: getHealthBadge(),
-        badgeClass: getHealthBadgeClass()
-      },
-      {
-        label: 'Performance',
-        icon: 'pi pi-fw pi-chart-line',
-        to: '/crawlers/performance'
-      }
-    ]
-  },
-  {
-    label: 'Job Management',
-    icon: 'pi pi-fw pi-list',
-    items: [
-      {
-        label: 'Job History',
+        label: 'History',
         icon: 'pi pi-fw pi-history',
-        to: '/jobs/history'
-      },
-      {
-        label: 'Active Jobs',
-        icon: 'pi pi-fw pi-spinner',
-        to: '/jobs/active',
-        badge: crawlerStore.activeCrawlers > 0 ? crawlerStore.activeCrawlers.toString() : undefined,
-        badgeClass: 'p-badge-primary'
-      },
-      {
-        label: 'Scheduled Jobs',
-        icon: 'pi pi-fw pi-calendar',
-        to: '/jobs/scheduled'
-      },
-      {
-        label: 'Failed Jobs',
-        icon: 'pi pi-fw pi-exclamation-triangle',
-        to: '/jobs/failed',
-        badge: getFailedJobsBadge(),
-        badgeClass: 'p-badge-danger'
+        to: '/crawlers/history'
       }
     ]
   },
   {
-    label: 'Monitoring & Analytics',
-    icon: 'pi pi-fw pi-chart-bar',
+    label: 'Predictions Management',
+    icon: 'pi pi-fw pi-brain',
     items: [
       {
-        label: 'Real-time Metrics',
-        icon: 'pi pi-fw pi-chart-line',
-        to: '/monitoring/metrics'
-      },
-      {
-        label: 'System Logs',
-        icon: 'pi pi-fw pi-file-o',
-        to: '/monitoring/logs'
-      },
-      {
-        label: 'Alerts & Notifications',
-        icon: 'pi pi-fw pi-bell',
-        to: '/monitoring/alerts',
-        badge: notificationStore.unreadCount > 0 ? notificationStore.unreadCount.toString() : undefined,
-        badgeClass: getNotificationBadgeClass()
-      },
-      {
-        label: 'Reports',
-        icon: 'pi pi-fw pi-chart-pie',
-        to: '/monitoring/reports'
-      }
-    ]
-  },
-  {
-    separator: true
-  },
-  {
-    label: 'Configuration',
-    icon: 'pi pi-fw pi-cog',
-    items: [
-      {
-        label: 'Crawler Settings',
-        icon: 'pi pi-fw pi-sliders-h',
-        to: '/config/crawlers'
-      },
-      {
-        label: 'System Configuration',
-        icon: 'pi pi-fw pi-wrench',
-        to: '/config/system'
-      },
-      {
-        label: 'User Preferences',
-        icon: 'pi pi-fw pi-user',
-        to: '/config/preferences'
-      },
-      {
-        label: 'API Keys',
-        icon: 'pi pi-fw pi-key',
-        to: '/config/api-keys'
-      }
-    ]
-  },
-  {
-    label: 'Tools & Utilities',
-    icon: 'pi pi-fw pi-wrench',
-    items: [
-      {
-        label: 'Data Export',
-        icon: 'pi pi-fw pi-download',
-        to: '/tools/export'
-      },
-      {
-        label: 'System Diagnostics',
+        label: 'Analyze Articles',
         icon: 'pi pi-fw pi-search',
-        to: '/tools/diagnostics'
+        to: '/predictions/analysis'
       },
       {
-        label: 'Backup & Restore',
-        icon: 'pi pi-fw pi-database',
-        to: '/tools/backup'
-      }
-    ]
-  },
-  {
-    separator: true
-  },
-  {
-    label: 'Help & Support',
-    icon: 'pi pi-fw pi-question-circle',
-    items: [
-      {
-        label: 'Documentation',
-        icon: 'pi pi-fw pi-book',
-        to: '/help/docs'
+        label: 'Prediction History',
+        icon: 'pi pi-fw pi-history',
+        to: '/predictions/history'
       },
       {
-        label: 'API Reference',
-        icon: 'pi pi-fw pi-code',
-        to: '/help/api'
-      },
-      {
-        label: 'Troubleshooting',
-        icon: 'pi pi-fw pi-exclamation-circle',
-        to: '/help/troubleshooting'
-      },
-      {
-        label: 'About',
-        icon: 'pi pi-fw pi-info-circle',
-        to: '/help/about'
+        label: 'Analysis Status',
+        icon: 'pi pi-fw pi-chart-bar',
+        to: '/analysis/status'
       }
     ]
   }
 ])
 
-// Helper functions for dynamic badges
-const getHealthBadge = () => {
-  const unhealthy = crawlerStore.unhealthyCrawlers
-  const unknown = crawlerStore.unknownCrawlers
-  
-  if (unhealthy > 0) return unhealthy.toString()
-  if (unknown > 0) return unknown.toString()
-  return undefined
-}
-
-const getHealthBadgeClass = () => {
-  const unhealthy = crawlerStore.unhealthyCrawlers
-  const unknown = crawlerStore.unknownCrawlers
-  
-  if (unhealthy > 0) return 'p-badge-danger'
-  if (unknown > 0) return 'p-badge-warning'
-  return 'p-badge-success'
-}
-
-const getFailedJobsBadge = () => {
-  // This would come from job store when implemented
-  // For now, return undefined
-  return undefined
-}
-
-const getNotificationBadgeClass = () => {
-  const errorCount = notificationStore.notificationsByType.error.length
-  const warnCount = notificationStore.notificationsByType.warn.length
-  
-  if (errorCount > 0) return 'p-badge-danger'
-  if (warnCount > 0) return 'p-badge-warning'
-  return 'p-badge-info'
-}
+// Helper functions for dynamic badges - removed unused functions for now
 
 // Methods
 const onMenuItemClick = (event: { originalEvent: Event; item: MenuItem }) => {

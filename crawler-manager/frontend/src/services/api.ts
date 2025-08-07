@@ -1,11 +1,11 @@
 import axios, { type AxiosInstance, type AxiosResponse, AxiosError } from 'axios'
-import type { 
-  HealthStatus, 
-  CrawlerConfiguration, 
-  CrawlRequest, 
-  CrawlResponse 
+import type {
+  HealthStatus,
+  CrawlerConfiguration,
+  CrawlRequest,
+  CrawlResponse
 } from '@/types/health'
-import type { 
+import type {
   ApiRequestOptions
 } from '@/types/api'
 
@@ -83,7 +83,7 @@ export class ApiService {
       lastCheck: new Date(),
       latency
     }
-    
+
     if (this.connectionStatus.online !== online) {
       this.connectionStatus = newStatus
       this.connectionListeners.forEach(listener => listener(newStatus))
@@ -137,12 +137,12 @@ export class ApiService {
         return await requestFn()
       } catch (error) {
         lastError = error as Error
-        
+
         // Don't retry on client errors (4xx)
         if (error instanceof ApiServiceError && error.status && error.status >= 400 && error.status < 500) {
           throw error
         }
-        
+
         if (attempt === retries) {
           throw lastError
         }
@@ -233,8 +233,8 @@ export class ApiService {
    * Trigger a crawl for a specific crawler
    */
   static async triggerCrawl(
-    crawlerId: string, 
-    request?: Partial<CrawlRequest>, 
+    crawlerId: string,
+    request?: Partial<CrawlRequest>,
     options?: ApiRequestOptions
   ): Promise<CrawlResponse> {
     return this.retryRequest(async () => {
@@ -272,7 +272,7 @@ export class ApiService {
    * Get crawler metrics
    */
   static async getCrawlerMetrics(
-    crawlerId: string, 
+    crawlerId: string,
     timeRange?: string,
     options?: ApiRequestOptions
   ): Promise<any> {
@@ -304,8 +304,8 @@ export class ApiService {
    * Get historical crawler metrics
    */
   static async getCrawlerMetricsHistory(
-    crawlerId: string, 
-    hours: number = 24, 
+    crawlerId: string,
+    hours: number = 24,
     options?: ApiRequestOptions
   ): Promise<any> {
     return this.retryRequest(async () => {
@@ -322,7 +322,7 @@ export class ApiService {
    * Trigger metrics collection for a crawler
    */
   static async triggerMetricsCollection(
-    crawlerId: string, 
+    crawlerId: string,
     options?: ApiRequestOptions
   ): Promise<any> {
     return this.retryRequest(async () => {
@@ -338,7 +338,7 @@ export class ApiService {
    * Get recent jobs for a crawler (last 5 jobs)
    */
   static async getRecentJobs(
-    crawlerId: string, 
+    crawlerId: string,
     options?: ApiRequestOptions
   ): Promise<any[]> {
     return this.retryRequest(async () => {
@@ -354,7 +354,7 @@ export class ApiService {
    * Get job history for a crawler with pagination
    */
   static async getJobHistory(
-    crawlerId: string, 
+    crawlerId: string,
     page: number = 0,
     size: number = 10,
     options?: ApiRequestOptions
@@ -475,28 +475,341 @@ export class ApiService {
       return response.data
     }, options)
   }
+
+  // Prediction Analysis API Methods
+
+  /**
+   * Get articles available for analysis with filtering
+   */
+  static async getArticlesForAnalysis(
+    filters?: {
+      authorId?: number | null
+      titleSearch?: string
+      fromDate?: string
+      toDate?: string
+      page?: number
+      size?: number
+    },
+    options?: ApiRequestOptions
+  ): Promise<{
+    articles: any[]
+    pagination: {
+      page: number
+      size: number
+      totalElements: number
+      totalPages: number
+      hasNext: boolean
+      hasPrevious: boolean
+    }
+  }> {
+    return this.retryRequest(async () => {
+      const params: Record<string, any> = {}
+
+      if (filters?.authorId) {
+        params.authorId = filters.authorId
+      }
+      if (filters?.titleSearch) {
+        params.titleSearch = filters.titleSearch
+      }
+      if (filters?.fromDate) {
+        params.fromDate = filters.fromDate
+      }
+      if (filters?.toDate) {
+        params.toDate = filters.toDate
+      }
+      if (filters?.page !== undefined) {
+        params.page = filters.page
+      }
+      if (filters?.size !== undefined) {
+        params.size = filters.size
+      }
+
+      const response = await this.instance.get('/prediction-analysis/articles', {
+        params,
+        timeout: options?.timeout,
+        headers: options?.headers
+      })
+      return response.data
+    }, options)
+  }
+
+  /**
+   * Get all authors for filter dropdowns
+   */
+  static async getAllAuthors(options?: ApiRequestOptions): Promise<{
+    author: {
+      id: number
+      name: string
+      avatarUrl?: string
+    }
+    articleCount: number
+  }[]> {
+    return this.retryRequest(async () => {
+      const response = await this.instance.get('/prediction-analysis/authors', {
+        timeout: options?.timeout,
+        headers: options?.headers
+      })
+      return response.data
+    }, options)
+  }
+
+  /**
+   * Start a new prediction analysis job
+   */
+  static async startAnalysis(
+    articleIds: number[],
+    analysisType: string = 'llm',
+    options?: ApiRequestOptions
+  ): Promise<any> {
+    return this.retryRequest(async () => {
+      const response = await this.instance.post('/prediction-analysis/jobs', {
+        articleIds,
+        analysisType
+      }, {
+        timeout: options?.timeout,
+        headers: options?.headers
+      })
+      return response.data
+    }, options)
+  }
+
+  /**
+   * Get analysis job status
+   */
+  static async getAnalysisJobStatus(
+    jobId: string,
+    options?: ApiRequestOptions
+  ): Promise<any> {
+    return this.retryRequest(async () => {
+      const response = await this.instance.get(`/prediction-analysis/jobs/${jobId}`, {
+        timeout: options?.timeout,
+        headers: options?.headers
+      })
+      return response.data
+    }, options)
+  }
+
+  /**
+   * Get analysis job results
+   */
+  static async getAnalysisResults(
+    jobId: string,
+    page: number = 0,
+    size: number = 20,
+    minRating?: number,
+    options?: ApiRequestOptions
+  ): Promise<{
+    results: any[]
+    job: any
+    pagination: {
+      page: number
+      size: number
+      totalElements: number
+      totalPages: number
+      hasNext: boolean
+      hasPrevious: boolean
+    }
+  }> {
+    return this.retryRequest(async () => {
+      const params: Record<string, any> = { page, size }
+      if (minRating !== undefined) {
+        params.minRating = minRating
+      }
+
+      const response = await this.instance.get(`/prediction-analysis/jobs/${jobId}/results`, {
+        params,
+        timeout: options?.timeout,
+        headers: options?.headers
+      })
+      return response.data
+    }, options)
+  }
+
+  /**
+   * Get analysis history with pagination
+   */
+  static async getAnalysisHistory(
+    page: number = 0,
+    size: number = 20,
+    options?: ApiRequestOptions
+  ): Promise<{
+    jobs: any[]
+    pagination: {
+      page: number
+      size: number
+      totalElements: number
+      totalPages: number
+      hasNext: boolean
+      hasPrevious: boolean
+    }
+  }> {
+    return this.retryRequest(async () => {
+      const response = await this.instance.get('/prediction-analysis/jobs', {
+        params: { page, size },
+        timeout: options?.timeout,
+        headers: options?.headers
+      })
+      return response.data
+    }, options)
+  }
+
+  /**
+   * Cancel a running analysis job
+   */
+  static async cancelAnalysisJob(
+    jobId: string,
+    options?: ApiRequestOptions
+  ): Promise<any> {
+    return this.retryRequest(async () => {
+      const response = await this.instance.delete(`/prediction-analysis/jobs/${jobId}`, {
+        timeout: options?.timeout,
+        headers: options?.headers
+      })
+      return response.data
+    }, options)
+  }
+
+  /**
+   * Retry a failed analysis job
+   */
+  static async retryAnalysisJob(
+    jobId: string,
+    options?: ApiRequestOptions
+  ): Promise<any> {
+    return this.retryRequest(async () => {
+      const response = await this.instance.post(`/analysis/jobs/${jobId}/retry`, {}, {
+        timeout: options?.timeout,
+        headers: options?.headers
+      })
+      return response.data
+    }, options)
+  }
+
+  /**
+   * Export analysis results
+   */
+  static async exportAnalysisResults(
+    jobId: string,
+    format: 'csv' | 'json' = 'csv',
+    options?: ApiRequestOptions
+  ): Promise<Blob> {
+    return this.retryRequest(async () => {
+      const response = await this.instance.get(`/prediction-analysis/jobs/${jobId}/export`, {
+        params: { format },
+        responseType: 'blob',
+        timeout: options?.timeout,
+        headers: options?.headers
+      })
+      return response.data
+    }, options)
+  }
+
+  /**
+   * Get comprehensive analysis system status
+   */
+  static async getAnalysisStatus(options?: ApiRequestOptions): Promise<any> {
+    return this.retryRequest(async () => {
+      const response = await this.instance.get('/prediction-analysis/status', {
+        timeout: options?.timeout,
+        headers: options?.headers
+      })
+      return response.data
+    }, options)
+  }
+
+  /**
+   * Get extractor configurations and status
+   */
+  static async getExtractorConfigurations(options?: ApiRequestOptions): Promise<any> {
+    return this.retryRequest(async () => {
+      const response = await this.instance.get('/prediction-analysis/extractors', {
+        timeout: options?.timeout,
+        headers: options?.headers
+      })
+      return response.data
+    }, options)
+  }
+
+  /**
+   * Get job statistics and performance metrics
+   */
+  static async getJobStatistics(options?: ApiRequestOptions): Promise<any> {
+    return this.retryRequest(async () => {
+      const response = await this.instance.get('/prediction-analysis/statistics', {
+        timeout: options?.timeout,
+        headers: options?.headers
+      })
+      return response.data
+    }, options)
+  }
+
+  /**
+   * Test prediction extraction with sample text
+   */
+  static async testPredictionExtraction(
+    text: string,
+    title?: string,
+    options?: ApiRequestOptions
+  ): Promise<any> {
+    return this.retryRequest(async () => {
+      const response = await this.instance.post('/prediction-analysis/test', {
+        text,
+        title
+      }, {
+        timeout: options?.timeout,
+        headers: options?.headers
+      })
+      return response.data
+    }, options)
+  }
+
+  /**
+   * Get prediction analysis configuration
+   */
+  static async getConfiguration(options?: ApiRequestOptions): Promise<any> {
+    return this.retryRequest(async () => {
+      const response = await this.instance.get('/prediction-analysis/config', {
+        timeout: options?.timeout,
+        headers: options?.headers
+      })
+      return response.data
+    }, options)
+  }
+
+  /**
+   * Get prediction analysis health status (uses status endpoint)
+   */
+  static async getPredictionAnalysisHealth(options?: ApiRequestOptions): Promise<any> {
+    return this.retryRequest(async () => {
+      const response = await this.instance.get('/prediction-analysis/status', {
+        timeout: options?.timeout,
+        headers: options?.headers
+      })
+      return response.data
+    }, options)
+  }
 }
 
 // Metrics API - separate namespace for metrics operations
 export const metricsApi = {
   getAllMetrics: (options?: ApiRequestOptions): Promise<Record<string, any>> =>
     ApiService.getAllCrawlerMetrics(options),
-  
+
   getCrawlerMetrics: (crawlerId: string, options?: ApiRequestOptions): Promise<any> =>
     ApiService.getCrawlerMetrics(crawlerId, undefined, options),
-  
+
   getCrawlerMetricsHistory: (crawlerId: string, hours: number = 24, options?: ApiRequestOptions): Promise<any> =>
     ApiService.getCrawlerMetricsHistory(crawlerId, hours, options),
-  
+
   triggerMetricsCollection: (crawlerId: string, options?: ApiRequestOptions): Promise<void> =>
     ApiService.triggerMetricsCollection(crawlerId, options),
-  
+
   triggerAllMetricsCollection: (options?: ApiRequestOptions): Promise<void> =>
     ApiService.triggerAllMetricsCollection(options),
-  
+
   clearMetricsCache: (crawlerId: string, options?: ApiRequestOptions): Promise<void> =>
     ApiService.clearMetricsCache(crawlerId, options),
-  
+
   getMetricsStatus: (options?: ApiRequestOptions): Promise<any> =>
     ApiService.getMetricsStatus(options)
 }

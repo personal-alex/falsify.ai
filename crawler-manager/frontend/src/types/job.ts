@@ -66,3 +66,51 @@ export interface JobStatistics {
   averageSuccessRate: number
   averageDuration: number
 }
+
+// Analysis job specific types
+export interface AnalysisJob {
+  id: number
+  jobId: string
+  status: 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'CANCELLED'
+  startedAt: string
+  completedAt?: string
+  totalArticles: number
+  processedArticles: number
+  predictionsFound: number
+  analysisType: 'mock' | 'llm'
+  errorMessage?: string
+}
+
+export interface AnalysisJobFilter {
+  status?: AnalysisJob['status'][]
+  analysisType?: AnalysisJob['analysisType'][]
+  dateFrom?: Date
+  dateTo?: Date
+  minPredictions?: number
+  searchTerm?: string
+}
+
+export interface PredictionInstance {
+  id: number
+  predictionText: string
+  rating: number
+  confidenceScore: number
+  context: string
+  extractedAt: string
+  article: {
+    id: number
+    title: string
+    author?: {
+      name: string
+      avatarUrl?: string
+    }
+  }
+}
+
+export interface AnalysisStatistics {
+  totalJobs: number
+  completedJobs: number
+  runningJobs: number
+  failedJobs: number
+  totalPredictions: number
+}

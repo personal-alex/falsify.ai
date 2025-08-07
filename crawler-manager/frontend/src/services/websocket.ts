@@ -48,12 +48,42 @@ export interface NotificationMessage {
   autoClose?: boolean
 }
 
+export interface AnalysisJobUpdateMessage {
+  type: 'analysis.job.started' | 'analysis.job.progress' | 'analysis.job.completed' | 'analysis.job.failed' | 'analysis.job.cancelled'
+  jobId: string
+  status: 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'CANCELLED'
+  progress?: {
+    articlesProcessed: number
+    articlesSkipped: number
+    articlesFailed: number
+    totalArticles?: number
+    predictionsFound?: number
+    currentActivity?: string
+    estimatedCompletion?: string
+  }
+  timestamp: string
+  details?: any
+}
+
+export interface PredictionExtractedMessage {
+  type: 'prediction.extracted'
+  jobId: string
+  predictionId: string
+  predictionText: string
+  rating: number
+  confidenceScore: number
+  articleId: number
+  timestamp: string
+}
+
 // Union type for all possible WebSocket messages
 export type WebSocketMessageType = 
   | HealthUpdateMessage 
   | JobUpdateMessage 
   | MetricsUpdateMessage 
   | NotificationMessage
+  | AnalysisJobUpdateMessage
+  | PredictionExtractedMessage
 
 // WebSocket service class
 export class WebSocketService {
@@ -279,6 +309,25 @@ export class WebSocketService {
   public onNotification(listener: (message: NotificationMessage) => void): () => void {
     return this.on<NotificationMessage>('notification', listener)
   }
+
+  public onAnalysisJobUpdate(listener: (message: AnalysisJobUpdateMessage) => void): () => void {
+    // Listen for multiple analysis job event types
+    const unsubscribers = [
+      this.on<AnalysisJobUpdateMessage>('analysis.job.started', listener),
+      this.on<AnalysisJobUpdateMessage>('analysis.job.progress', listener),
+      this.on<AnalysisJobUpdateMessage>('analysis.job.completed', listener),
+      this.on<AnalysisJobUpdateMessage>('analysis.job.failed', listener),
+      this.on<AnalysisJobUpdateMessage>('analysis.job.cancelled', listener)
+    ]
+    
+    return () => {
+      unsubscribers.forEach(unsub => unsub())
+    }
+  }
+
+  public onPredictionExtracted(listener: (message: PredictionExtractedMessage) => void): () => void {
+    return this.on<PredictionExtractedMessage>('prediction.extracted', listener)
+  }
 }
 
 // Legacy WebSocket service for backward compatibility
@@ -367,6 +416,14 @@ export function getWebSocketService(): WebSocketService {
     
     mainWebSocketInstance.onNotification((message) => {
       eventBus.emit('notification', message)
+    })
+    
+    mainWebSocketInstance.onAnalysisJobUpdate((message) => {
+      eventBus.emit('analysis:job:updated', message)
+    })
+    
+    mainWebSocketInstance.onPredictionExtracted((message) => {
+      eventBus.emit('prediction:extracted', message)
     })
   }
   return mainWebSocketInstance

@@ -12,8 +12,9 @@
     <modules>
         <module>crawler-common</module>
         <module>crawler-drucker</module>
-        <module>crawler-manager</module>
         <module>crawler-caspit</module>
+        <module>prediction-analysis</module>
+        <module>crawler-manager</module>
     </modules>
 
     <properties>

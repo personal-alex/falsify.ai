@@ -51,6 +51,12 @@
             <artifactId>quarkus-rest-jackson</artifactId>
         </dependency>
         
+        <!-- Scheduler -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-scheduler</artifactId>
+        </dependency>
+        
         <!-- JSoup for HTML parsing -->
         <dependency>
             <groupId>org.jsoup</groupId>
@@ -58,10 +64,35 @@
             <version>1.18.3</version>
         </dependency>
         
+        <!-- LangChain4j for LLM integration (placeholder for future implementation) -->
+        <!-- Uncomment when ready to implement LLM integration -->
+        <!--
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j</artifactId>
+            <version>0.34.0</version>
+        </dependency>
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-open-ai</artifactId>
+            <version>0.34.0</version>
+        </dependency>
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-embeddings</artifactId>
+            <version>0.34.0</version>
+        </dependency>
+        -->
+        
         <!-- Testing -->
         <dependency>
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-junit5</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-junit5-mockito</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>

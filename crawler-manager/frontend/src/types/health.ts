@@ -15,6 +15,8 @@ export interface CrawlerConfiguration {
   crawlEndpoint: string
   statusEndpoint: string
   enabled: boolean
+  authorName?: string
+  authorAvatarUrl?: string
 }
 
 export interface CrawlerHealthData {

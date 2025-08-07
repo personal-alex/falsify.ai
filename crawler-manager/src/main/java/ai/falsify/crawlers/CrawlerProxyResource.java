@@ -39,21 +39,21 @@ public class CrawlerProxyResource {
         LOG.infof("Received crawl trigger request [%s] for crawler: %s", requestId, crawlerId);
         
         try {
+            // Validate crawler ID first - empty path params should return 404
+            if (crawlerId == null || crawlerId.trim().isEmpty()) {
+                LOG.warnf("Invalid crawler ID in request [%s]", requestId);
+                return Response.status(Response.Status.NOT_FOUND)
+                    .entity(CrawlResponse.error("unknown", requestId, 
+                        "Crawler ID is required", "validation"))
+                    .build();
+            }
+            
             // If no request body provided, create one with the crawler ID
             if (request == null) {
                 request = new CrawlRequest(crawlerId);
             } else {
                 // Ensure crawler ID matches path parameter
                 request.crawlerId = crawlerId;
-            }
-            
-            // Validate crawler ID
-            if (crawlerId == null || crawlerId.trim().isEmpty()) {
-                LOG.warnf("Invalid crawler ID in request [%s]", requestId);
-                return Response.status(Response.Status.BAD_REQUEST)
-                    .entity(CrawlResponse.error("unknown", requestId, 
-                        "Crawler ID is required", "validation"))
-                    .build();
             }
             
             // Execute crawl through proxy service
@@ -69,6 +69,18 @@ public class CrawlerProxyResource {
                 .entity(response)
                 .build();
                 
+        } catch (jakarta.ws.rs.BadRequestException e) {
+            LOG.warnf("Bad request in crawl trigger [%s]: %s", requestId, e.getMessage());
+            
+            CrawlResponse errorResponse = CrawlResponse.error(
+                crawlerId, requestId, 
+                "Invalid request format", 
+                "validation"
+            );
+            
+            return Response.status(Response.Status.BAD_REQUEST)
+                .entity(errorResponse)
+                .build();
         } catch (Exception e) {
             LOG.errorf("Unexpected error in crawl trigger [%s]: %s", requestId, e.getMessage(), e);
             
@@ -97,10 +109,10 @@ public class CrawlerProxyResource {
         LOG.debugf("Received status request [%s] for crawler: %s", requestId, crawlerId);
         
         try {
-            // Validate crawler ID
+            // Validate crawler ID - empty path params should return 404
             if (crawlerId == null || crawlerId.trim().isEmpty()) {
                 LOG.warnf("Invalid crawler ID in status request [%s]", requestId);
-                return Response.status(Response.Status.BAD_REQUEST)
+                return Response.status(Response.Status.NOT_FOUND)
                     .entity(java.util.Map.of(
                         "error", "Crawler ID is required",
                         "requestId", requestId
