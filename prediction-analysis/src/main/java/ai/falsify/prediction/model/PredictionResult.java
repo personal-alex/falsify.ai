@@ -9,7 +9,7 @@ import java.math.BigDecimal;
 public record PredictionResult(
     String predictionText,
     String predictionType,
-    Integer rating,
+    Double rating,
     BigDecimal confidenceScore,
     String context,
     String timeframe,
@@ -21,7 +21,7 @@ public record PredictionResult(
      * 
      * @param predictionText the prediction text (required)
      * @param predictionType the type/category of prediction (optional)
-     * @param rating the rating from 1-5 stars (required)
+     * @param rating the rating from 1.0-5.0 stars (required)
      * @param confidenceScore the confidence score from 0.0-1.0 (optional, defaults to 0.0)
      * @param context the surrounding context text (optional)
      * @param timeframe the timeframe for the prediction (optional)
@@ -32,8 +32,8 @@ public record PredictionResult(
             throw new IllegalArgumentException("Prediction text cannot be null or empty");
         }
         
-        if (rating == null || rating < 1 || rating > 5) {
-            throw new IllegalArgumentException("Rating must be between 1 and 5, got: " + rating);
+        if (rating == null || rating < 1.0 || rating > 5.0) {
+            throw new IllegalArgumentException("Rating must be between 1.0 and 5.0, got: " + rating);
         }
         
         if (confidenceScore == null) {
@@ -54,10 +54,10 @@ public record PredictionResult(
      * Creates a simple PredictionResult with just text and rating.
      * 
      * @param predictionText the prediction text
-     * @param rating the rating (1-5)
+     * @param rating the rating (1.0-5.0)
      * @return new PredictionResult
      */
-    public static PredictionResult simple(String predictionText, Integer rating) {
+    public static PredictionResult simple(String predictionText, Double rating) {
         return new PredictionResult(predictionText, null, rating, null, null, null, null);
     }
     
@@ -66,10 +66,10 @@ public record PredictionResult(
      * 
      * @param predictionText the prediction text
      * @param predictionType the prediction type
-     * @param rating the rating (1-5)
+     * @param rating the rating (1.0-5.0)
      * @return new PredictionResult
      */
-    public static PredictionResult withType(String predictionText, String predictionType, Integer rating) {
+    public static PredictionResult withType(String predictionText, String predictionType, Double rating) {
         return new PredictionResult(predictionText, predictionType, rating, null, null, null, null);
     }
     
@@ -78,12 +78,12 @@ public record PredictionResult(
      * 
      * @param predictionText the prediction text
      * @param predictionType the prediction type
-     * @param rating the rating (1-5)
+     * @param rating the rating (1.0-5.0)
      * @param confidenceScore the confidence score (0.0-1.0)
      * @param context the context text
      * @return new PredictionResult
      */
-    public static PredictionResult full(String predictionText, String predictionType, Integer rating, 
+    public static PredictionResult full(String predictionText, String predictionType, Double rating, 
                                        BigDecimal confidenceScore, String context) {
         return new PredictionResult(predictionText, predictionType, rating, confidenceScore, context, null, null);
     }
@@ -95,8 +95,17 @@ public record PredictionResult(
      */
     public String getStarRating() {
         StringBuilder stars = new StringBuilder();
+        int fullStars = (int) Math.floor(rating);
+        boolean hasHalfStar = (rating - fullStars) >= 0.5;
+        
         for (int i = 1; i <= 5; i++) {
-            stars.append(i <= rating ? "★" : "☆");
+            if (i <= fullStars) {
+                stars.append("★");
+            } else if (i == fullStars + 1 && hasHalfStar) {
+                stars.append("☆"); // Could use ⭐ for half star if needed
+            } else {
+                stars.append("☆");
+            }
         }
         return stars.toString();
     }
@@ -123,12 +132,12 @@ public record PredictionResult(
     }
     
     /**
-     * Checks if this is a high-rated prediction (>= 4 stars).
+     * Checks if this is a high-rated prediction (>= 4.0 stars).
      * 
-     * @return true if rating >= 4
+     * @return true if rating >= 4.0
      */
     public boolean isHighRated() {
-        return rating >= 4;
+        return rating >= 4.0;
     }
     
     /**

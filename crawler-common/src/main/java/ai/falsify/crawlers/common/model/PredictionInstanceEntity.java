@@ -4,8 +4,6 @@ import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.Min;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
@@ -42,10 +40,10 @@ public class PredictionInstanceEntity extends PanacheEntity {
     @Column(name = "confidence_score", precision = 3, scale = 2)
     public BigDecimal confidenceScore;
 
-    @Min(value = 1, message = "Rating must be between 1 and 5")
-    @Max(value = 5, message = "Rating must be between 1 and 5")
+    @DecimalMin(value = "1.0", message = "Rating must be between 1.0 and 5.0")
+    @DecimalMax(value = "5.0", message = "Rating must be between 1.0 and 5.0")
     @Column(name = "rating", nullable = false)
-    public Integer rating; // 1-5 stars
+    public Double rating; // 1.0-5.0 stars
 
     @Column(name = "extracted_at", columnDefinition = "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
     public Instant extractedAt;
@@ -71,7 +69,7 @@ public class PredictionInstanceEntity extends PanacheEntity {
      * @param context the surrounding context text
      */
     public PredictionInstanceEntity(PredictionEntity prediction, ArticleEntity article, 
-                                  AnalysisJobEntity analysisJob, Integer rating, 
+                                  AnalysisJobEntity analysisJob, Double rating, 
                                   BigDecimal confidenceScore, String context) {
         this();
         this.prediction = prediction;
@@ -124,11 +122,11 @@ public class PredictionInstanceEntity extends PanacheEntity {
     /**
      * Finds prediction instances by rating.
      * 
-     * @param rating the rating (1-5)
+     * @param rating the rating (1.0-5.0)
      * @return list of instances with the specified rating
      */
-    public static List<PredictionInstanceEntity> findByRating(Integer rating) {
-        if (rating == null || rating < 1 || rating > 5) {
+    public static List<PredictionInstanceEntity> findByRating(Double rating) {
+        if (rating == null || rating < 1.0 || rating > 5.0) {
             return List.of();
         }
         return list("rating", rating);
@@ -140,8 +138,8 @@ public class PredictionInstanceEntity extends PanacheEntity {
      * @param minRating the minimum rating
      * @return list of instances with rating >= minRating
      */
-    public static List<PredictionInstanceEntity> findByMinRating(Integer minRating) {
-        if (minRating == null || minRating < 1 || minRating > 5) {
+    public static List<PredictionInstanceEntity> findByMinRating(Double minRating) {
+        if (minRating == null || minRating < 1.0 || minRating > 5.0) {
             return List.of();
         }
         return list("rating >= ?1", minRating);
@@ -233,11 +231,11 @@ public class PredictionInstanceEntity extends PanacheEntity {
     /**
      * Counts prediction instances by rating.
      * 
-     * @param rating the rating (1-5)
+     * @param rating the rating (1.0-5.0)
      * @return count of instances with the specified rating
      */
-    public static long countByRating(Integer rating) {
-        if (rating == null || rating < 1 || rating > 5) {
+    public static long countByRating(Double rating) {
+        if (rating == null || rating < 1.0 || rating > 5.0) {
             return 0;
         }
         return count("rating", rating);
@@ -253,8 +251,17 @@ public class PredictionInstanceEntity extends PanacheEntity {
             return "☆☆☆☆☆";
         }
         StringBuilder stars = new StringBuilder();
+        int fullStars = (int) Math.floor(rating);
+        boolean hasHalfStar = (rating - fullStars) >= 0.5;
+        
         for (int i = 1; i <= 5; i++) {
-            stars.append(i <= rating ? "★" : "☆");
+            if (i <= fullStars) {
+                stars.append("★");
+            } else if (i == fullStars + 1 && hasHalfStar) {
+                stars.append("☆"); // Could use ⭐ for half star if needed
+            } else {
+                stars.append("☆");
+            }
         }
         return stars.toString();
     }
@@ -278,12 +285,12 @@ public class PredictionInstanceEntity extends PanacheEntity {
      * @return validated rating
      * @throws IllegalArgumentException if rating is invalid
      */
-    private static Integer validateRating(Integer rating) {
+    private static Double validateRating(Double rating) {
         if (rating == null) {
             throw new IllegalArgumentException("Rating cannot be null");
         }
-        if (rating < 1 || rating > 5) {
-            throw new IllegalArgumentException("Rating must be between 1 and 5, got: " + rating);
+        if (rating < 1.0 || rating > 5.0) {
+            throw new IllegalArgumentException("Rating must be between 1.0 and 5.0, got: " + rating);
         }
         return rating;
     }

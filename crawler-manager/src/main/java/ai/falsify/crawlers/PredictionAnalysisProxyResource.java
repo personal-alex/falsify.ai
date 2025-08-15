@@ -116,7 +116,7 @@ public class PredictionAnalysisProxyResource {
     public Response getJobResults(@PathParam("jobId") String jobId,
             @QueryParam("page") Integer page,
             @QueryParam("size") Integer size,
-            @QueryParam("minRating") Integer minRating) {
+            @QueryParam("minRating") Double minRating) {
         LOG.debugf("Proxying job results request: jobId=%s, page=%s, size=%s", jobId, page, size);
 
         try {

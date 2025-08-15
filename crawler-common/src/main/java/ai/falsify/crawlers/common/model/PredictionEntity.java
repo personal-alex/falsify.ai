@@ -81,7 +81,6 @@ public class PredictionEntity extends PanacheEntity {
      * @param predictionType the prediction type (optional)
      * @return existing or newly created PredictionEntity
      */
-    @Transactional
     public static PredictionEntity findOrCreate(String predictionText, String predictionType) {
         if (predictionText == null || predictionText.trim().isEmpty()) {
             throw new IllegalArgumentException("Prediction text cannot be null or empty");

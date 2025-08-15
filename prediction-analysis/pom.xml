@@ -36,6 +36,10 @@
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-scheduler</artifactId>
         </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-smallrye-context-propagation</artifactId>
+        </dependency>
 
         <!-- Common module dependency -->
         <dependency>
@@ -54,6 +58,27 @@
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j-google-ai-gemini</artifactId>
             <version>0.34.0</version>
+        </dependency>
+
+        <!-- Google Cloud AI Platform library for native integration -->
+        <dependency>
+            <groupId>com.google.cloud</groupId>
+            <artifactId>google-cloud-aiplatform</artifactId>
+            <version>3.54.0</version>
+        </dependency>
+        
+        <!-- Google Cloud Vertex AI Generative AI library -->
+        <dependency>
+            <groupId>com.google.cloud</groupId>
+            <artifactId>google-cloud-vertexai</artifactId>
+            <version>1.8.0</version>
+        </dependency>
+
+        <!-- Google GenAI Unified SDK for batch operations -->
+        <dependency>
+            <groupId>com.google.genai</groupId>
+            <artifactId>google-genai</artifactId>
+            <version>1.12.0</version>
         </dependency>
 
         <!-- Test dependencies -->

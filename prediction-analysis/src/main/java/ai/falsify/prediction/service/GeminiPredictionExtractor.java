@@ -657,12 +657,12 @@ public class GeminiPredictionExtractor implements BatchPredictionExtractor {
                 LOG.debugf("Failed to parse confidence '%s': %s", confidenceStr, e.getMessage());
             }
 
-            int rating = 3; // Default
+            double rating = 3.0; // Default
             try {
                 if (ratingStr != null && !ratingStr.trim().isEmpty()) {
-                    rating = Integer.parseInt(ratingStr.trim());
-                    rating = Math.max(1, Math.min(5, rating)); // Clamp to 1-5
-                    LOG.debugf("Parsed rating: %d", rating);
+                    rating = Double.parseDouble(ratingStr.trim());
+                    rating = Math.max(1.0, Math.min(5.0, rating)); // Clamp to 1.0-5.0
+                    LOG.debugf("Parsed rating: %.1f", rating);
                 }
             } catch (Exception e) {
                 LOG.debugf("Failed to parse rating '%s': %s", ratingStr, e.getMessage());

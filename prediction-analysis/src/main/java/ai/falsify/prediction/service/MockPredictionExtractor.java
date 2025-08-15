@@ -231,7 +231,7 @@ public class MockPredictionExtractor implements PredictionExtractor {
             String predictionText = fillTemplate(template, predictionType);
             
             // Generate rating (biased towards higher ratings for more realistic results)
-            Integer rating = generateRating();
+            Double rating = generateRating();
             
             // Generate confidence score
             BigDecimal confidenceScore = generateConfidenceScore();
@@ -280,16 +280,25 @@ public class MockPredictionExtractor implements PredictionExtractor {
     /**
      * Generates a rating with bias towards higher values.
      * 
-     * @return rating between 1-5
+     * @return rating between 1.0-5.0
      */
-    private Integer generateRating() {
+    private Double generateRating() {
         // Bias towards higher ratings: 20% chance for 1-2, 30% for 3, 50% for 4-5
+        // Add some decimal variation for more realistic results
+        double baseRating;
         double random = ThreadLocalRandom.current().nextDouble();
-        if (random < 0.1) return 1;
-        if (random < 0.2) return 2;
-        if (random < 0.5) return 3;
-        if (random < 0.75) return 4;
-        return 5;
+        if (random < 0.1) baseRating = 1.0;
+        else if (random < 0.2) baseRating = 2.0;
+        else if (random < 0.5) baseRating = 3.0;
+        else if (random < 0.75) baseRating = 4.0;
+        else baseRating = 5.0;
+        
+        // Add decimal variation (±0.4)
+        double variation = ThreadLocalRandom.current().nextDouble(-0.4, 0.4);
+        double finalRating = baseRating + variation;
+        
+        // Clamp to valid range
+        return Math.max(1.0, Math.min(5.0, finalRating));
     }
     
     /**

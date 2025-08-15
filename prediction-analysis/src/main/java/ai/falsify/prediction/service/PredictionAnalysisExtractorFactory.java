@@ -15,7 +15,7 @@ public class PredictionAnalysisExtractorFactory {
     
     private static final Logger LOG = Logger.getLogger(PredictionAnalysisExtractorFactory.class);
     
-    @ConfigProperty(name = "prediction.extractor.type", defaultValue = "gemini")
+    @ConfigProperty(name = "prediction.extractor.type", defaultValue = "gemini-native")
     String extractorType;
     
     @ConfigProperty(name = "prediction.extractor.auto-fallback", defaultValue = "true")
@@ -26,6 +26,9 @@ public class PredictionAnalysisExtractorFactory {
     
     @Inject
     GeminiPredictionExtractor geminiExtractor;
+    
+    @Inject
+    GeminiNativePredictionExtractor geminiNativeExtractor;
     
     @Inject
     LLMConfiguration llmConfiguration;
@@ -53,6 +56,30 @@ public class PredictionAnalysisExtractorFactory {
     }
     
     /**
+     * Gets an extractor based on configuration preference with intelligent fallback.
+     * This method respects configuration while providing smart defaults.
+     * 
+     * @return the best configured prediction extractor
+     */
+    public PredictionExtractor getConfiguredExtractor() {
+        // First try the explicitly configured extractor
+        PredictionExtractor configured = getExtractorByType(extractorType);
+        if (configured != null && configured.isAvailable()) {
+            LOG.debugf("Using configured extractor: %s", extractorType);
+            return configured;
+        }
+        
+        // If configured extractor is not available, use intelligent selection
+        if (autoFallback) {
+            LOG.infof("Configured extractor (%s) not available, using best available", extractorType);
+            return getBestAvailableExtractor();
+        }
+        
+        // Return configured extractor even if not available (for error handling)
+        return configured != null ? configured : mockExtractor;
+    }
+    
+    /**
      * Gets the batch prediction extractor for the specified type.
      * 
      * @param type the extractor type
@@ -68,14 +95,15 @@ public class PredictionAnalysisExtractorFactory {
     
     /**
      * Gets the best available prediction extractor with intelligent selection.
+     * Prefers gemini-native over other extractors for better performance.
      * 
      * @return the best available prediction extractor
      */
     public PredictionExtractor getBestAvailableExtractor() {
-        // Try Gemini first if available
-        if (geminiExtractor.isAvailable()) {
-            LOG.debugf("Using Gemini extractor (best available)");
-            return geminiExtractor;
+        // Try Gemini Native first if available (preferred for batch processing)
+        if (geminiNativeExtractor.isAvailable()) {
+            LOG.debugf("Using Gemini Native extractor (best available)");
+            return geminiNativeExtractor;
         }
         
         // Try the configured primary extractor
@@ -83,6 +111,12 @@ public class PredictionAnalysisExtractorFactory {
         if (primary != null && primary.isAvailable()) {
             LOG.debugf("Using configured primary extractor: %s", extractorType);
             return primary;
+        }
+        
+        // Try Gemini (LangChain4j) as fallback
+        if (geminiExtractor.isAvailable()) {
+            LOG.debugf("Using Gemini extractor (fallback)");
+            return geminiExtractor;
         }
         
         // Fallback to mock
@@ -101,8 +135,8 @@ public class PredictionAnalysisExtractorFactory {
      * @return fallback prediction extractor
      */
     public PredictionExtractor getFallbackExtractor() {
-        // Try extractors in order of preference
-        String[] fallbackOrder = {"gemini", "mock"};
+        // Try extractors in order of preference (gemini-native preferred over gemini)
+        String[] fallbackOrder = {"gemini-native", "gemini", "mock"};
         
         for (String type : fallbackOrder) {
             if (!type.equals(extractorType)) { // Skip the primary type
@@ -122,17 +156,25 @@ public class PredictionAnalysisExtractorFactory {
     /**
      * Gets a specific extractor by type.
      * 
-     * @param type the extractor type ("mock", "gemini", "llm")
+     * @param type the extractor type ("mock", "gemini", "gemini-native", "llm")
      * @return the extractor instance or null if type is unknown
      */
     public PredictionExtractor getExtractorByType(String type) {
+        LOG.infof("Extracting predictor for type %s", type);
         if (type == null) {
             return null;
         }
         
         return switch (type.toLowerCase()) {
             case "mock" -> mockExtractor;
-            case "gemini", "llm" -> geminiExtractor; // Both gemini and llm use the Gemini extractor
+            case "gemini" -> geminiExtractor;
+            case "gemini-native" -> geminiNativeExtractor;
+            case "llm" -> {
+                // For "llm" type, use the configured primary extractor type
+                // This allows the client to use "llm" as a generic type while respecting configuration
+                LOG.infof("LLM type requested, using configured primary extractor: %s", extractorType);
+                yield getExtractorByType(extractorType);
+            }
             default -> {
                 LOG.warnf("Unknown extractor type: %s", type);
                 yield null;
@@ -152,6 +194,35 @@ public class PredictionAnalysisExtractorFactory {
     }
     
     /**
+     * Performs health check on a specific extractor.
+     * 
+     * @param type the extractor type to check
+     * @return health status information
+     */
+    public java.util.Map<String, Object> checkExtractorHealth(String type) {
+        PredictionExtractor extractor = getExtractorByType(type);
+        if (extractor == null) {
+            return java.util.Map.of(
+                "type", type,
+                "exists", false,
+                "available", false,
+                "error", "Unknown extractor type"
+            );
+        }
+        
+        boolean available = extractor.isAvailable();
+        String configuration = extractor.getConfiguration();
+        
+        return java.util.Map.of(
+            "type", type,
+            "exists", true,
+            "available", available,
+            "configuration", configuration,
+            "extractorType", extractor.getExtractorType()
+        );
+    }
+    
+    /**
      * Gets the status of all available extractors.
      * 
      * @return map of extractor types to their availability status
@@ -166,8 +237,63 @@ public class PredictionAnalysisExtractorFactory {
                 "available", geminiExtractor.isAvailable(),
                 "configuration", geminiExtractor.getConfiguration()
             ),
+            "gemini-native", java.util.Map.of(
+                "available", geminiNativeExtractor.isAvailable(),
+                "configuration", geminiNativeExtractor.getConfiguration()
+            ),
             "primary", extractorType,
             "autoFallback", autoFallback
+        );
+    }
+    
+    /**
+     * Gets detailed status report for all extractors including health information.
+     * 
+     * @return comprehensive status report
+     */
+    public java.util.Map<String, Object> getDetailedExtractorStatus() {
+        java.util.Map<String, Object> status = new java.util.HashMap<>();
+        
+        // Add individual extractor status
+        status.put("extractors", java.util.Map.of(
+            "mock", checkExtractorHealth("mock"),
+            "gemini", checkExtractorHealth("gemini"),
+            "gemini-native", checkExtractorHealth("gemini-native")
+        ));
+        
+        // Add configuration information
+        status.put("configuration", java.util.Map.of(
+            "primaryType", extractorType,
+            "autoFallback", autoFallback
+        ));
+        
+        // Add selection information
+        PredictionExtractor primary = getPrimaryExtractor();
+        PredictionExtractor best = getBestAvailableExtractor();
+        
+        status.put("selection", java.util.Map.of(
+            "primary", primary != null ? primary.getExtractorType() : "none",
+            "bestAvailable", best != null ? best.getExtractorType() : "none",
+            "primaryAvailable", primary != null && primary.isAvailable(),
+            "bestAvailable", best != null && best.isAvailable()
+        ));
+        
+        return status;
+    }
+    
+    /**
+     * Gets a summary of extractor availability for quick status checks.
+     * 
+     * @return availability summary
+     */
+    public java.util.Map<String, Boolean> getExtractorAvailabilitySummary() {
+        return java.util.Map.of(
+            "mock", mockExtractor.isAvailable(),
+            "gemini", geminiExtractor.isAvailable(),
+            "gemini-native", geminiNativeExtractor.isAvailable(),
+            "anyAvailable", mockExtractor.isAvailable() || 
+                           geminiExtractor.isAvailable() || 
+                           geminiNativeExtractor.isAvailable()
         );
     }
 }
