@@ -67,19 +67,7 @@ const router = createRouter({
         ]
       }
     },
-    {
-      path: '/predictions/wizard',
-      name: 'predictions-wizard',
-      component: () => import('@/views/PredictionAnalysisWizardView.vue'),
-      meta: {
-        title: 'Prediction Analysis',
-        breadcrumb: [
-          { label: 'Dashboard', to: '/' },
-          { label: 'Predictions Management', to: '/predictions/analysis' },
-          { label: 'Analyze Articles' }
-        ]
-      }
-    },
+
     {
       path: '/predictions/history',
       name: 'predictions-history',

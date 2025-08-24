@@ -121,6 +121,10 @@ public class PredictionAnalysisProxyResource {
 
         try {
             return predictionAnalysisClient.getJobResults(jobId, page, size, minRating);
+        } catch (jakarta.ws.rs.WebApplicationException e) {
+            // Pass through client errors (4xx) and server errors from the target service
+            LOG.debugf("Received HTTP error from prediction-analysis service: %d", e.getResponse().getStatus());
+            return e.getResponse();
         } catch (Exception e) {
             LOG.errorf(e, "Error proxying job results request");
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
@@ -266,6 +270,10 @@ public class PredictionAnalysisProxyResource {
 
         try {
             return predictionAnalysisClient.startAnalysis(body);
+        } catch (jakarta.ws.rs.WebApplicationException e) {
+            // Pass through client errors (4xx) and server errors from the target service
+            LOG.debugf("Received HTTP error from prediction-analysis service: %d", e.getResponse().getStatus());
+            return e.getResponse();
         } catch (Exception e) {
             LOG.errorf(e, "Error proxying start analysis request");
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)

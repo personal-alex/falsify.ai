@@ -1,184 +1,514 @@
 <template>
   <div class="predictions-analysis">
-    <!-- Header -->
-    <!-- div class="page-header mb-4">
+    <!-- Page Header -->
+    <div class="page-header">
       <div class="flex align-items-center justify-content-between">
-        <div class="flex align-items-center">
-          <i class="pi pi-search mr-3 text-primary text-2xl"></i>
-          <div>
-            <h1 class="text-2xl font-semibold text-900 m-0">Analyze articles</h1>
-            <p class="text-600 m-0 mt-1">Select articles and extract predictions using AI analysis</p>
-          </div>
+        <div>
+          <h1>Analyze Articles</h1>
+          <p class="text-color-secondary">Select articles and analyze predictions using AI</p>
         </div>
       </div>
-    </div -->
-
-    <!-- Steps Component -->
-    <div class="steps-container mb-4">
-      <Steps 
-        :model="stepItems" 
-        :activeIndex="activeStep" 
-        :readonly="false"
-        class="custom-steps"
-      />
     </div>
 
-    <!-- Step Content -->
-    <div class="step-content">
-      <!-- Step 1: Articles Selection -->
-      <div v-if="activeStep === 0" class="step-panel">
-        <Panel>
-          <template #header>
-            <div class="flex align-items-center">
-              <i class="pi pi-list mr-2"></i>
-              <span class="font-semibold">Select Articles for Analysis</span>
+    <!-- Article Selection Section -->
+    <div class="article-selection-section">
+      <Panel header="Article Selection" :toggleable="false">
+        <!-- Filters -->
+        <div class="filters-section mb-4">
+          <div class="grid">
+            <div class="col-12 md:col-3">
+              <label for="author-filter" class="block text-sm font-medium mb-2">Author</label>
+              <Dropdown
+                id="author-filter"
+                v-model="filters.authorId"
+                :options="authors"
+                option-label="name"
+                option-value="id"
+                placeholder="All Authors"
+                :show-clear="true"
+                class="w-full"
+              >
+                <template #option="slotProps">
+                  <div class="flex align-items-center">
+                    <Avatar
+                      v-if="slotProps.option.avatarUrl"
+                      :image="slotProps.option.avatarUrl"
+                      size="small"
+                      class="mr-2"
+                    />
+                    <Avatar
+                      v-else
+                      :label="slotProps.option.name.charAt(0)"
+                      size="small"
+                      class="mr-2"
+                    />
+                    <span>{{ slotProps.option.name }} ({{ slotProps.option.articleCount }})</span>
+                  </div>
+                </template>
+              </Dropdown>
             </div>
-          </template>
-
-          <!-- Article Filters -->
-          <div class="mb-4">
-            <ArticleFilter 
-              :filters="filters"
-              :authors="authors"
-              @filter-changed="onFilterChanged"
-            />
+            
+            <div class="col-12 md:col-3">
+              <label for="title-search" class="block text-sm font-medium mb-2">Title Search</label>
+              <InputText
+                id="title-search"
+                v-model="filters.titleSearch"
+                placeholder="Search article titles..."
+                class="w-full"
+              />
+            </div>
+            
+            <div class="col-12 md:col-3">
+              <label for="date-range" class="block text-sm font-medium mb-2">Date Range</label>
+              <Calendar
+                id="date-range"
+                v-model="filters.dateRange"
+                selection-mode="range"
+                :show-icon="true"
+                placeholder="Select date range"
+                class="w-full"
+              />
+            </div>
+            
+            <div class="col-12 md:col-3">
+              <label for="crawler-source" class="block text-sm font-medium mb-2">Source</label>
+              <Dropdown
+                id="crawler-source"
+                v-model="filters.crawlerSource"
+                :options="['drucker', 'caspit']"
+                placeholder="All Sources"
+                :show-clear="true"
+                class="w-full"
+              />
+            </div>
           </div>
+        </div>
 
-          <!-- Article Selection Table -->
-          <ArticleSelectionTable 
-            :articles="filteredArticles"
-            :selected-articles="selectedArticles"
+        <!-- Articles Table -->
+        <div class="articles-table-container">
+          <DataTable
+            v-model:selection="selectedArticles"
+            :value="filteredArticles"
             :loading="isLoadingArticles"
-            @selection-changed="onSelectionChanged"
-            @refresh-articles="refreshArticles"
-          />
+            selection-mode="multiple"
+            :meta-key-selection="false"
+            data-key="id"
+            :paginator="true"
+            :rows="20"
+            :total-records="totalArticles"
+            :lazy="true"
+            @page="onPageChange"
+            @selection-change="onSelectionChanged"
+            class="articles-table"
+            :scroll-height="'400px'"
+            :scrollable="true"
+          >
+            <template #header>
+              <div class="flex justify-content-between align-items-center">
+                <div class="selection-summary">
+                  <span class="font-semibold">{{ selectedArticles.length }} articles selected</span>
+                  <span v-if="totalArticles > 0" class="text-color-secondary ml-2">
+                    ({{ totalArticles }} total available)
+                  </span>
+                </div>
+                <div class="flex gap-2">
+                  <Button
+                    icon="pi pi-refresh"
+                    label="Refresh"
+                    :loading="isRefreshing"
+                    @click="refreshArticles"
+                    size="small"
+                  />
+                  <Button
+                    icon="pi pi-times"
+                    label="Clear Selection"
+                    :disabled="selectedArticles.length === 0"
+                    @click="clearSelection"
+                    severity="secondary"
+                    size="small"
+                  />
+                  <Button
+                    icon="pi pi-search"
+                    label="Analyze Selected"
+                    :disabled="selectedArticles.length === 0 || isAnalyzing"
+                    :loading="isAnalyzing"
+                    @click="startAnalysis"
+                    size="small"
+                  />
+                </div>
+              </div>
+            </template>
 
-          <!-- Step Actions -->
-          <div class="flex justify-content-between align-items-center mt-4 pt-3 border-top-1 surface-border">
-            <div class="selection-summary">
-              <span v-if="selectedArticles.length > 0" class="text-primary font-medium">
-                {{ selectedArticles.length }} articles selected
-              </span>
-              <span v-else class="text-500">
-                No articles selected
-              </span>
+            <Column selection-mode="multiple" header-style="width: 3rem"></Column>
+            
+            <Column field="title" header="Title" :sortable="true" style="min-width: 300px">
+              <template #body="slotProps">
+                <div class="article-title">
+                  <a :href="slotProps.data.url" target="_blank" class="text-primary no-underline">
+                    {{ slotProps.data.title }}
+                  </a>
+                </div>
+              </template>
+            </Column>
+            
+            <Column field="author.name" header="Author" :sortable="true" style="min-width: 150px">
+              <template #body="slotProps">
+                <div v-if="slotProps.data.author" class="flex align-items-center">
+                  <Avatar
+                    v-if="slotProps.data.author.avatarUrl"
+                    :image="slotProps.data.author.avatarUrl"
+                    size="small"
+                    class="mr-2"
+                  />
+                  <Avatar
+                    v-else
+                    :label="slotProps.data.author.name.charAt(0)"
+                    size="small"
+                    class="mr-2"
+                  />
+                  <span>{{ slotProps.data.author.name }}</span>
+                </div>
+              </template>
+            </Column>
+            
+            <Column field="createdAt" header="Date" :sortable="true" style="min-width: 120px">
+              <template #body="slotProps">
+                {{ new Date(slotProps.data.createdAt).toLocaleDateString() }}
+              </template>
+            </Column>
+            
+            <Column field="crawlerSource" header="Source" :sortable="true" style="min-width: 100px">
+              <template #body="slotProps">
+                <Tag :value="slotProps.data.crawlerSource" :severity="slotProps.data.crawlerSource === 'drucker' ? 'info' : 'success'" />
+              </template>
+            </Column>
+
+            <template #empty>
+              <div class="text-center py-4">
+                <i class="pi pi-search text-4xl text-color-secondary mb-3"></i>
+                <p class="text-color-secondary">No articles found matching your criteria</p>
+                <Button label="Clear Filters" @click="clearFilters" size="small" />
+              </div>
+            </template>
+          </DataTable>
+        </div>
+      </Panel>
+    </div>
+
+    <!-- Analysis Progress Section -->
+    <div v-if="isAnalyzing || currentAnalysisJob" class="analysis-progress-section mt-4">
+      <Panel header="Analysis Progress" :toggleable="false">
+        <div v-if="currentAnalysisJob" class="progress-content">
+          <div class="grid">
+            <div class="col-12 md:col-8">
+              <div class="progress-info">
+                <div class="flex align-items-center mb-3">
+                  <ProgressSpinner v-if="isAnalyzing" size="small" class="mr-2" />
+                  <i v-else-if="currentAnalysisJob.status === 'COMPLETED'" class="pi pi-check-circle text-green-500 mr-2"></i>
+                  <i v-else-if="currentAnalysisJob.status === 'FAILED'" class="pi pi-times-circle text-red-500 mr-2"></i>
+                  <span class="font-semibold">{{ getStatusLabel(currentAnalysisJob.status) }}</span>
+                </div>
+                
+                <div v-if="currentAnalysisJob.totalArticles" class="mb-3">
+                  <div class="flex justify-content-between mb-2">
+                    <span>Progress: {{ currentAnalysisJob.processedArticles || 0 }} / {{ currentAnalysisJob.totalArticles }}</span>
+                    <span>{{ Math.round(((currentAnalysisJob.processedArticles || 0) / currentAnalysisJob.totalArticles) * 100) }}%</span>
+                  </div>
+                  <ProgressBar 
+                    :value="Math.round(((currentAnalysisJob.processedArticles || 0) / currentAnalysisJob.totalArticles) * 100)"
+                    class="mb-2"
+                  />
+                </div>
+                
+                <div v-if="currentAnalysisJob.currentActivity" class="text-sm text-color-secondary mb-2">
+                  Current: {{ currentAnalysisJob.currentActivity }}
+                </div>
+                
+                <div class="text-sm text-color-secondary">
+                  Predictions found: {{ currentAnalysisJob.predictionsFound || 0 }}
+                </div>
+              </div>
             </div>
             
-            <div class="flex gap-2">
-              <!-- Actions moved to topbar -->
+            <div class="col-12 md:col-4">
+              <div class="flex flex-column gap-2">
+                <Button
+                  v-if="isAnalyzing"
+                  icon="pi pi-times"
+                  label="Cancel Analysis"
+                  severity="danger"
+                  @click="cancelAnalysis"
+                  size="small"
+                />
+                <Button
+                  v-else-if="currentAnalysisJob.status === 'FAILED'"
+                  icon="pi pi-refresh"
+                  label="Retry Analysis"
+                  @click="retryAnalysis"
+                  size="small"
+                />
+              </div>
             </div>
           </div>
-        </Panel>
-      </div>
+        </div>
+      </Panel>
+    </div>
 
-      <!-- Step 2: Extracted Predictions -->
-      <div v-if="activeStep === 1" class="step-panel">
-        <Panel>
+    <!-- Results Section -->
+    <div v-if="analysisResults.length > 0" class="results-section mt-4">
+      <Panel header="Analysis Results" :toggleable="false">
+        <!-- Results Summary -->
+        <div class="results-summary mb-4">
+          <div class="grid">
+            <div class="col-12 md:col-3">
+              <div class="summary-item">
+                <div class="text-2xl font-bold text-primary">{{ analysisResults.length }}</div>
+                <div class="text-sm text-color-secondary">Total Predictions</div>
+              </div>
+            </div>
+            <div class="col-12 md:col-3">
+              <div class="summary-item">
+                <div class="text-2xl font-bold text-primary">{{ averageRating.toFixed(1) }}</div>
+                <div class="text-sm text-color-secondary">Average Rating</div>
+              </div>
+            </div>
+            <div class="col-12 md:col-3">
+              <div class="summary-item">
+                <div class="text-2xl font-bold text-primary">{{ highConfidenceCount }}</div>
+                <div class="text-sm text-color-secondary">High Confidence</div>
+              </div>
+            </div>
+            <div class="col-12 md:col-3">
+              <div class="summary-item">
+                <div class="text-2xl font-bold text-primary">{{ uniqueArticlesCount }}</div>
+                <div class="text-sm text-color-secondary">Articles Analyzed</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Results Filters -->
+        <div class="results-filters mb-4">
+          <div class="grid">
+            <div class="col-12 md:col-3">
+              <label for="min-rating" class="block text-sm font-medium mb-2">Minimum Rating</label>
+              <Dropdown
+                id="min-rating"
+                v-model="resultsFilters.minRating"
+                :options="ratingOptions"
+                option-label="label"
+                option-value="value"
+                placeholder="All Ratings"
+                :show-clear="true"
+                class="w-full"
+              />
+            </div>
+            
+            <div class="col-12 md:col-3">
+              <label for="min-confidence" class="block text-sm font-medium mb-2">Minimum Confidence (%)</label>
+              <Slider
+                id="min-confidence"
+                v-model="resultsFilters.minConfidence"
+                :min="0"
+                :max="100"
+                class="w-full"
+              />
+              <div class="text-sm text-color-secondary mt-1">{{ resultsFilters.minConfidence }}%</div>
+            </div>
+            
+            <div class="col-12 md:col-4">
+              <label for="search-results" class="block text-sm font-medium mb-2">Search Results</label>
+              <InputText
+                id="search-results"
+                v-model="resultsFilters.searchText"
+                placeholder="Search predictions, articles, or authors..."
+                class="w-full"
+              />
+            </div>
+            
+            <div class="col-12 md:col-2">
+              <label class="block text-sm font-medium mb-2">&nbsp;</label>
+              <div class="flex gap-2">
+                <Button
+                  icon="pi pi-filter-slash"
+                  label="Clear"
+                  @click="clearResultsFilters"
+                  severity="secondary"
+                  size="small"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Results Table -->
+        <DataTable
+          :value="filteredResults"
+          :loading="isLoadingResults"
+          :paginator="true"
+          :rows="10"
+          data-key="id"
+          class="results-table"
+        >
           <template #header>
-            <div class="flex align-items-center">
-              <i class="pi pi-eye mr-2"></i>
-              <span class="font-semibold">Extracted Predictions</span>
+            <div class="flex justify-content-between align-items-center">
+              <span class="font-semibold">{{ filteredResults.length }} predictions found</span>
+              <div class="flex gap-2">
+                <Button
+                  icon="pi pi-refresh"
+                  label="Refresh"
+                  @click="refreshResults"
+                  size="small"
+                />
+                <Button
+                  icon="pi pi-download"
+                  label="Export"
+                  @click="showExportMenu"
+                  size="small"
+                />
+                <Menu ref="exportMenu" :model="exportMenuItems" :popup="true" />
+                <Button
+                  icon="pi pi-plus"
+                  label="New Analysis"
+                  @click="startNewAnalysis"
+                  size="small"
+                />
+              </div>
             </div>
           </template>
 
-          <!-- Analysis Progress -->
-          <div v-if="currentAnalysisJob && currentAnalysisJob.status === 'RUNNING'" class="mb-4">
-            <AnalysisProgress 
-              :job="currentAnalysisJob"
-              @cancel-analysis="cancelAnalysis"
-              @retry-analysis="retryAnalysis"
-              @job-updated="onJobUpdated"
-            />
-          </div>
+          <Column field="predictionText" header="Prediction" style="min-width: 300px">
+            <template #body="slotProps">
+              <div class="prediction-text">
+                {{ slotProps.data.predictionText }}
+              </div>
+            </template>
+          </Column>
+          
+          <Column field="rating" header="Rating" :sortable="true" style="min-width: 120px">
+            <template #body="slotProps">
+              <Rating :model-value="slotProps.data.rating" :readonly="true" :cancel="false" />
+            </template>
+          </Column>
+          
+          <Column field="confidenceScore" header="Confidence" :sortable="true" style="min-width: 120px">
+            <template #body="slotProps">
+              <div class="confidence-score">
+                <ProgressBar 
+                  :value="Math.round((slotProps.data.confidenceScore || 0) * 100)"
+                  :show-value="true"
+                  class="confidence-bar"
+                />
+              </div>
+            </template>
+          </Column>
+          
+          <Column field="article.title" header="Article" style="min-width: 200px">
+            <template #body="slotProps">
+              <div v-if="slotProps.data.article">
+                <a :href="slotProps.data.article.url" target="_blank" class="text-primary no-underline">
+                  {{ slotProps.data.article.title }}
+                </a>
+                <div v-if="slotProps.data.article.author" class="text-sm text-color-secondary mt-1">
+                  by {{ slotProps.data.article.author.name }}
+                </div>
+              </div>
+            </template>
+          </Column>
+          
+          <Column field="extractedAt" header="Extracted" :sortable="true" style="min-width: 120px">
+            <template #body="slotProps">
+              {{ new Date(slotProps.data.extractedAt).toLocaleDateString() }}
+            </template>
+          </Column>
 
-          <!-- Analysis Results -->
-          <div v-if="analysisResults.length > 0">
-            <PredictionResults 
-              :predictions="analysisResults"
-              :loading="isLoadingResults"
-              @export-results="exportResults"
-              @refresh-results="refreshResults"
-              @prediction-selected="onPredictionSelected"
-            />
-          </div>
-
-          <!-- Empty State -->
-          <div v-if="!currentAnalysisJob && analysisResults.length === 0" class="text-center p-6">
-            <div class="mb-4">
-              <i class="pi pi-search text-6xl text-400"></i>
+          <template #empty>
+            <div class="text-center py-4">
+              <i class="pi pi-search text-4xl text-color-secondary mb-3"></i>
+              <p class="text-color-secondary">No predictions found matching your criteria</p>
             </div>
-            <div class="text-900 font-medium text-xl mb-2">No Analysis Results</div>
-            <div class="text-600 mb-4">
-              Analysis results will appear here once the analysis is complete.
-            </div>
-          </div>
+          </template>
+        </DataTable>
 
-          <!-- Step Actions -->
-          <div class="flex justify-content-between align-items-center mt-4 pt-3 border-top-1 surface-border">
-            <Button 
-              icon="pi pi-arrow-left"
-              label="Back to Selection"
-              @click="goToStep(0)"
+        <!-- Results Actions -->
+        <div class="results-actions mt-4">
+          <div class="flex justify-content-center gap-3">
+            <Button
+              icon="pi pi-history"
+              label="View History"
+              @click="viewHistory"
               severity="secondary"
-              outlined
             />
-            
-            <div class="flex gap-2">
-              <Button 
-                icon="pi pi-history" 
-                label="View History"
-                @click="viewHistory"
-                severity="secondary"
-                outlined
-              />
-              
-              <Button 
-                v-if="analysisResults.length > 0"
-                icon="pi pi-download" 
-                label="Export Results"
-                @click="showExportMenu"
-                severity="primary"
-                outlined
-              />
-            </div>
+            <Button
+              icon="pi pi-eye"
+              label="Detailed Results"
+              @click="viewDetailedResults"
+              severity="secondary"
+            />
           </div>
-        </Panel>
-      </div>
+        </div>
+      </Panel>
     </div>
 
-    <!-- Export Menu -->
-    <Menu ref="exportMenu" :model="exportMenuItems" :popup="true" />
-    
-    <!-- Confirm Dialog -->
-    <ConfirmDialog />
+    <!-- Empty State -->
+    <div v-if="!isAnalyzing && !currentAnalysisJob && analysisResults.length === 0" class="empty-state mt-4">
+      <Panel>
+        <div class="text-center py-6">
+          <i class="pi pi-search text-6xl text-color-secondary mb-4"></i>
+          <h3 class="text-color-secondary mb-3">Ready to Analyze Articles</h3>
+          <p class="text-color-secondary mb-4">
+            Select articles from the table above and click "Analyze Selected" to start prediction analysis.
+          </p>
+          <div class="flex justify-content-center gap-3">
+            <Button
+              icon="pi pi-history"
+              label="View Previous Results"
+              @click="viewHistory"
+              severity="secondary"
+            />
+          </div>
+        </div>
+      </Panel>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
-import { useTopBarStore } from '@/stores/topbar'
-import { getWebSocketService, type AnalysisJobUpdateMessage, type PredictionExtractedMessage } from '@/services/websocket'
-import { ApiService, ApiServiceError } from '@/services/api'
-import Button from 'primevue/button'
-import Panel from 'primevue/panel'
-import Steps from 'primevue/steps'
-import Menu from 'primevue/menu'
-import ConfirmDialog from 'primevue/confirmdialog'
 
-import ArticleFilter, { type ArticleFilters, type Author } from '@/components/ArticleFilter.vue'
-import ArticleSelectionTable, { type Article } from '@/components/ArticleSelectionTable.vue'
-import AnalysisProgress from '@/components/AnalysisProgress.vue'
-import PredictionResults from '@/components/PredictionResults.vue'
+// PrimeVue Components
+import Panel from 'primevue/panel'
+import DataTable from 'primevue/datatable'
+import Column from 'primevue/column'
+import Button from 'primevue/button'
+import Dropdown from 'primevue/dropdown'
+import InputText from 'primevue/inputtext'
+import Calendar from 'primevue/calendar'
+import Avatar from 'primevue/avatar'
+import Tag from 'primevue/tag'
+import ProgressSpinner from 'primevue/progressspinner'
+import ProgressBar from 'primevue/progressbar'
+import Rating from 'primevue/rating'
+import Slider from 'primevue/slider'
+import Menu from 'primevue/menu'
+
+// Services and Types
+import { ApiService, ApiServiceError } from '@/services/api'
+import { getPredictionAnalysisWebSocketService } from '@/services/prediction-websocket'
+
+import type { 
+  Article, 
+  Author, 
+  ArticleFilters
+} from '@/types'
 
 const router = useRouter()
 const route = useRoute()
 const toast = useToast()
-const topBarStore = useTopBarStore()
 
 // Reactive state
-const activeStep = ref(0)
 const isLoadingArticles = ref(false)
 const isRefreshing = ref(false)
 const isAnalyzing = ref(false)
@@ -187,18 +517,6 @@ const selectedArticles = ref<Article[]>([])
 const currentAnalysisJob = ref<any>(null)
 const analysisResults = ref<any[]>([])
 const analysisConfig = ref<any>(null)
-
-// Steps configuration
-const stepItems = ref([
-  {
-    label: 'Articles Selection',
-    icon: 'pi pi-list'
-  },
-  {
-    label: 'Extracted Predictions',
-    icon: 'pi pi-eye'
-  }
-])
 
 // Export menu
 const exportMenu = ref<any>(null)
@@ -229,6 +547,21 @@ const filters = ref<ArticleFilters>({
   dateRange: null,
   crawlerSource: null
 })
+
+// Results filtering and sorting
+const resultsFilters = ref({
+  minRating: null as number | null,
+  minConfidence: 0,
+  searchText: ''
+})
+
+const ratingOptions = [
+  { label: '5 Stars', value: 5 },
+  { label: '4+ Stars', value: 4 },
+  { label: '3+ Stars', value: 3 },
+  { label: '2+ Stars', value: 2 },
+  { label: '1+ Stars', value: 1 }
+]
 
 // Initialize filters from URL query parameters
 const initializeFiltersFromURL = () => {
@@ -319,38 +652,81 @@ const filteredArticles = computed(() => {
   return filtered
 })
 
-// Update topbar actions based on current state
-const updateTopBarActions = () => {
-  if (activeStep.value === 0) {
-    // Article selection step - show refresh and analyze actions
-    topBarStore.setPredictionAnalysisActions({
-      onRefreshArticles: refreshArticles,
-      onAnalyzeArticles: startAnalysis
-    }, {
-      hasSelectedArticles: selectedArticles.value.length > 0,
-      isRefreshing: isRefreshing.value,
-      isAnalyzing: isAnalyzing.value
-    })
-  } else {
-    // Results step - clear actions or show different actions
-    topBarStore.clearContextActions()
+// Results computed properties
+const averageRating = computed(() => {
+  if (analysisResults.value.length === 0) return 0
+  const sum = analysisResults.value.reduce((acc, pred) => acc + (pred.rating || 0), 0)
+  return sum / analysisResults.value.length
+})
+
+const highConfidenceCount = computed(() => {
+  return analysisResults.value.filter(pred => (pred.confidenceScore || 0) > 0.8).length
+})
+
+const uniqueArticlesCount = computed(() => {
+  const articleIds = new Set(analysisResults.value.map(pred => pred.article?.id).filter(Boolean))
+  return articleIds.size
+})
+
+const filteredResults = computed(() => {
+  let filtered = [...analysisResults.value]
+  
+  // Rating filter
+  if (resultsFilters.value.minRating !== null) {
+    filtered = filtered.filter(pred => (pred.rating || 0) >= resultsFilters.value.minRating!)
+  }
+  
+  // Confidence filter
+  if (resultsFilters.value.minConfidence > 0) {
+    filtered = filtered.filter(pred => (pred.confidenceScore || 0) >= resultsFilters.value.minConfidence / 100)
+  }
+  
+  // Search filter
+  if (resultsFilters.value.searchText) {
+    const search = resultsFilters.value.searchText.toLowerCase()
+    filtered = filtered.filter(pred => 
+      pred.predictionText?.toLowerCase().includes(search) ||
+      pred.article?.title?.toLowerCase().includes(search) ||
+      pred.article?.author?.name?.toLowerCase().includes(search)
+    )
+  }
+  
+  return filtered
+})
+
+
+
+// Event handlers
+const onSelectionChanged = (event: any) => {
+  selectedArticles.value = [...event.value]
+}
+
+const onPageChange = (event: any) => {
+  currentPage.value = event.page
+  loadArticles()
+}
+
+const clearSelection = () => {
+  selectedArticles.value = []
+}
+
+const clearFilters = () => {
+  filters.value = {
+    authorId: null,
+    titleSearch: '',
+    dateRange: null,
+    crawlerSource: null
   }
 }
 
-// Event handlers
-const onFilterChanged = (newFilters: ArticleFilters) => {
-  filters.value = { ...newFilters }
-}
-
-const onSelectionChanged = (newSelection: Article[]) => {
-  selectedArticles.value = [...newSelection]
-  updateTopBarActions() // Update actions when selection changes
-}
-
-// Step navigation
-const goToStep = (step: number) => {
-  activeStep.value = step
-  updateTopBarActions() // Update actions when step changes
+const getStatusLabel = (status: string) => {
+  switch (status) {
+    case 'PENDING': return 'Starting Analysis...'
+    case 'RUNNING': return 'Analyzing Articles...'
+    case 'COMPLETED': return 'Analysis Complete'
+    case 'FAILED': return 'Analysis Failed'
+    default: return status
+  }
 }
 
 const showExportMenu = (event: Event) => {
@@ -362,7 +738,6 @@ const showExportMenu = (event: Event) => {
 // Methods
 const refreshArticles = async () => {
   isRefreshing.value = true
-  updateTopBarActions() // Update button states
   
   try {
     await loadArticles()
@@ -387,7 +762,83 @@ const refreshArticles = async () => {
     })
   } finally {
     isRefreshing.value = false
-    updateTopBarActions() // Update button states
+  }
+}
+
+// Start prediction analysis
+const startAnalysis = async () => {
+  console.log('startAnalysis called, selectedArticles:', selectedArticles.value)
+  console.log('selectedArticles length:', selectedArticles.value.length)
+  console.log('isAnalyzing current value:', isAnalyzing.value)
+  
+  if (selectedArticles.value.length === 0) {
+    toast.add({
+      severity: 'warn',
+      summary: 'No Articles Selected',
+      detail: 'Please select at least one article to analyze',
+      life: 3000
+    })
+    return
+  }
+
+  if (isAnalyzing.value) {
+    console.log('Analysis already in progress, ignoring duplicate request')
+    return
+  }
+
+  // Set analyzing flag immediately to prevent duplicate requests
+  isAnalyzing.value = true
+  console.log('Set isAnalyzing to true, starting analysis...')
+
+  try {
+    
+    const articleIds = selectedArticles.value.map(article => article.id)
+    const analysisType = analysisConfig.value?.preferredAnalysisType || 'llm'
+    
+    console.log('Starting analysis for articles:', articleIds, 'with type:', analysisType)
+    console.log('Selected articles details:', selectedArticles.value.map(a => ({ id: a.id, title: a.title?.substring(0, 50) })))
+    
+    const job = await ApiService.startAnalysis(articleIds, analysisType)
+    console.log('API response for startAnalysis:', job)
+    
+    currentAnalysisJob.value = {
+      jobId: job.jobId,
+      status: job.status || 'PENDING',
+      startedAt: job.startedAt || new Date().toISOString(),
+      totalArticles: selectedArticles.value.length,
+      processedArticles: 0,
+      predictionsFound: 0,
+      analysisType: analysisType
+    }
+    
+    console.log('Analysis job created and assigned to currentAnalysisJob.value:', currentAnalysisJob.value)
+    console.log('currentAnalysisJob.value is now:', currentAnalysisJob.value)
+    
+    toast.add({
+      severity: 'info',
+      summary: 'Analysis Started',
+      detail: `Started analysis of ${selectedArticles.value.length} articles`,
+      life: 3000
+    })
+    
+    // Poll for job status updates (fallback if WebSocket doesn't work)
+    pollJobStatus(job.jobId)
+    
+  } catch (error) {
+    console.error('Error starting analysis:', error)
+    const errorMessage = error instanceof ApiServiceError 
+      ? error.message 
+      : 'Failed to start prediction analysis'
+    
+    toast.add({
+      severity: 'error',
+      summary: 'Analysis Failed',
+      detail: errorMessage,
+      life: 5000
+    })
+    
+    isAnalyzing.value = false
+    currentAnalysisJob.value = null
   }
 }
 
@@ -452,63 +903,6 @@ const loadArticles = async () => {
   }
 }
 
-const startAnalysis = async () => {
-  if (selectedArticles.value.length === 0) return
-
-  isAnalyzing.value = true
-  updateTopBarActions() // Update button states
-  
-  // Navigate to results step
-  activeStep.value = 1
-  updateTopBarActions() // Update actions for new step
-  
-  try {
-    const articleIds = selectedArticles.value.map(article => article.id)
-    
-    // Start the analysis job using configured analysis type
-    const analysisType = analysisConfig.value?.preferredAnalysisType || 'llm'
-    const job = await ApiService.startAnalysis(articleIds, analysisType, { retries: 1 })
-    
-    currentAnalysisJob.value = {
-      id: job.id,
-      jobId: job.jobId,
-      totalArticles: job.totalArticles,
-      processedArticles: job.processedArticles || 0,
-      predictionsFound: job.predictionsFound || 0,
-      status: job.status,
-      startedAt: job.startedAt
-    }
-    
-    toast.add({
-      severity: 'info',
-      summary: 'Analysis Started',
-      detail: `Started analysis of ${selectedArticles.value.length} articles`,
-      life: 3000
-    })
-    
-    // Poll for job status updates (fallback if WebSocket doesn't work)
-    pollJobStatus(job.jobId)
-    
-  } catch (error) {
-    console.error('Error starting analysis:', error)
-    const errorMessage = error instanceof ApiServiceError 
-      ? error.message 
-      : 'Failed to start prediction analysis'
-    
-    toast.add({
-      severity: 'error',
-      summary: 'Analysis Failed',
-      detail: errorMessage,
-      life: 5000
-    })
-    
-    isAnalyzing.value = false
-    currentAnalysisJob.value = null
-    updateTopBarActions() // Update button states
-    // Stay on results step to show error
-  }
-}
-
 // Job status polling
 let statusPollingInterval: NodeJS.Timeout | null = null
 
@@ -531,6 +925,7 @@ const pollJobStatus = (jobId: string) => {
         
         // Check if job is complete
         if (job.status === 'COMPLETED') {
+          console.log('Job completed, loading results for job:', jobId)
           isAnalyzing.value = false
           clearInterval(statusPollingInterval!)
           statusPollingInterval = null
@@ -572,25 +967,34 @@ const pollJobStatus = (jobId: string) => {
 }
 
 const loadAnalysisResults = async (jobId: string) => {
+  console.log('Loading analysis results for job:', jobId)
   isLoadingResults.value = true
   
   try {
+    console.log('Making API call to get analysis results...')
     const response = await ApiService.getAnalysisResults(jobId, 0, 100) // Load first 100 results
+    console.log('API response received:', response)
     
-    analysisResults.value = response.results.map(result => ({
+    // Handle different response formats from backend
+    // The backend returns List<PredictionInstanceEntity> directly, not wrapped in an object
+    const results = Array.isArray(response) ? response : (response.results || [])
+    
+    analysisResults.value = results.map(result => ({
       id: result.id,
-      predictionText: result.prediction.predictionText,
-      rating: result.rating,
-      confidenceScore: result.confidenceScore,
-      context: result.context,
+      predictionText: result.prediction?.predictionText || result.predictionText || 'No prediction text',
+      rating: result.rating || 0,
+      confidenceScore: result.confidenceScore || 0,
+      context: result.context || '',
       article: {
-        id: result.article.id,
-        title: result.article.title,
-        url: result.article.url,
-        author: result.article.author
+        id: result.article?.id || 0,
+        title: result.article?.title || 'Unknown Article',
+        url: result.article?.url || '#',
+        author: result.article?.author || null
       },
-      extractedAt: result.extractedAt
+      extractedAt: result.extractedAt || new Date().toISOString()
     }))
+    
+    console.log('Analysis results loaded:', analysisResults.value.length, 'predictions')
     
   } catch (error) {
     console.error('Error loading analysis results:', error)
@@ -656,23 +1060,7 @@ const retryAnalysis = () => {
   }
 }
 
-const onJobUpdated = (updatedJob: any) => {
-  currentAnalysisJob.value = updatedJob
-  
-  // If job is completed, load results
-  if (updatedJob.status === 'COMPLETED') {
-    isAnalyzing.value = false
-    // Results should already be in analysisResults from real-time updates
-  } else if (updatedJob.status === 'FAILED') {
-    isAnalyzing.value = false
-    toast.add({
-      severity: 'error',
-      summary: 'Analysis Failed',
-      detail: updatedJob.errorMessage || 'Analysis failed due to an error',
-      life: 5000
-    })
-  }
-}
+
 
 const refreshResults = () => {
   isLoadingResults.value = true
@@ -689,75 +1077,9 @@ const refreshResults = () => {
   }, 1000)
 }
 
-const onPredictionSelected = (prediction: any) => {
-  // Handle prediction selection - could emit event or navigate
-  console.log('Prediction selected:', prediction)
-}
 
-// WebSocket setup for real-time updates
-const setupWebSocketListeners = () => {
-  const wsService = getWebSocketService()
-  
-  // Listen for analysis job updates
-  const unsubscribeAnalysisJob = wsService.onAnalysisJobUpdate((message: AnalysisJobUpdateMessage) => {
-    if (currentAnalysisJob.value && message.jobId === currentAnalysisJob.value.jobId) {
-      // Update current job with real-time data
-      currentAnalysisJob.value = {
-        ...currentAnalysisJob.value,
-        status: message.status,
-        processedArticles: message.progress?.articlesProcessed || currentAnalysisJob.value.processedArticles,
-        predictionsFound: message.progress?.predictionsFound || currentAnalysisJob.value.predictionsFound,
-        currentActivity: message.progress?.currentActivity,
-        completedAt: message.type === 'analysis.job.completed' || message.type === 'analysis.job.failed' 
-          ? message.timestamp 
-          : currentAnalysisJob.value.completedAt
-      }
-      
-      // Handle job completion
-      if (message.type === 'analysis.job.completed') {
-        isAnalyzing.value = false
-        toast.add({
-          severity: 'success',
-          summary: 'Analysis Complete',
-          detail: `Found ${currentAnalysisJob.value.predictionsFound} predictions`,
-          life: 3000
-        })
-      } else if (message.type === 'analysis.job.failed') {
-        isAnalyzing.value = false
-        toast.add({
-          severity: 'error',
-          summary: 'Analysis Failed',
-          detail: message.details?.errorMessage || 'Analysis failed due to an error',
-          life: 5000
-        })
-      }
-    }
-  })
-  
-  // Listen for individual prediction extractions
-  const unsubscribePredictionExtracted = wsService.onPredictionExtracted((message: PredictionExtractedMessage) => {
-    if (currentAnalysisJob.value && message.jobId === currentAnalysisJob.value.jobId) {
-      // Add new prediction to results in real-time
-      const newPrediction = {
-        id: message.predictionId,
-        predictionText: message.predictionText,
-        rating: message.rating,
-        confidenceScore: message.confidenceScore,
-        article: selectedArticles.value.find(a => a.id === message.articleId),
-        extractedAt: message.timestamp,
-        context: 'Real-time extracted prediction'
-      }
-      
-      analysisResults.value.push(newPrediction)
-    }
-  })
-  
-  // Store unsubscribe functions for cleanup
-  onUnmounted(() => {
-    unsubscribeAnalysisJob()
-    unsubscribePredictionExtracted()
-  })
-}
+
+
 
 const exportResults = async (format: string) => {
   if (!currentAnalysisJob.value?.jobId) return
@@ -843,8 +1165,151 @@ const loadAuthors = async () => {
   }
 }
 
+// WebSocket setup for real-time updates
+const setupWebSocketListeners = () => {
+  try {
+    const wsService = getPredictionAnalysisWebSocketService()
+    console.log('WebSocket service obtained:', wsService)
+    console.log('WebSocket connection status:', wsService.getConnectionStatus())
+    
+    // Listen for connection status changes
+    wsService.onConnectionStatusChange((status) => {
+      console.log('WebSocket connection status changed:', status)
+    })
+    
+    // Listen for analysis job updates
+    wsService.onAnalysisJobUpdate((message: any) => {
+      try {
+        console.log('Prediction analysis WebSocket message received:', message)
+        console.log('Current job ID:', currentAnalysisJob.value?.jobId || 'null')
+        console.log('Message job ID:', message.jobId)
+        
+        // If we don't have a current job but receive a message, create the job object
+        if (!currentAnalysisJob.value && message.jobId) {
+          console.log('Creating currentAnalysisJob from WebSocket message')
+          currentAnalysisJob.value = {
+            jobId: message.jobId,
+            status: 'RUNNING',
+            startedAt: new Date().toISOString(),
+            totalArticles: selectedArticles.value.length || 0,
+            processedArticles: 0,
+            predictionsFound: 0,
+            analysisType: 'llm'
+          }
+        }
+        
+        // Process message if we have a job and the IDs match, or if we just created the job
+        if (currentAnalysisJob.value && (message.jobId === currentAnalysisJob.value.jobId || !currentAnalysisJob.value.jobId)) {
+          // Update job ID if it wasn't set
+          if (!currentAnalysisJob.value.jobId && message.jobId) {
+            currentAnalysisJob.value.jobId = message.jobId
+          }
+          
+          // Handle different message types from the backend
+          if (message.type === 'job.status.update') {
+            currentAnalysisJob.value = {
+              ...currentAnalysisJob.value,
+              status: message.data?.status || 'RUNNING'
+            }
+            console.log('Updated job status to:', currentAnalysisJob.value.status)
+          } else if (message.type === 'job.progress.update') {
+            currentAnalysisJob.value = {
+              ...currentAnalysisJob.value,
+              processedArticles: message.data?.processedArticles || currentAnalysisJob.value.processedArticles,
+              predictionsFound: message.data?.predictionsFound || currentAnalysisJob.value.predictionsFound,
+              currentActivity: message.data?.currentActivity || currentAnalysisJob.value.currentActivity
+            }
+            console.log('Updated job progress:', {
+              processed: currentAnalysisJob.value.processedArticles,
+              predictions: currentAnalysisJob.value.predictionsFound
+            })
+          } else if (message.type === 'job.completed') {
+            console.log('Job completed via WebSocket, loading results for job:', message.jobId)
+            isAnalyzing.value = false
+            
+            // Stop polling since we got WebSocket notification
+            if (statusPollingInterval) {
+              clearInterval(statusPollingInterval)
+              statusPollingInterval = null
+            }
+            
+            // Update job status
+            currentAnalysisJob.value = {
+              ...currentAnalysisJob.value,
+              status: 'COMPLETED',
+              processedArticles: message.data?.processedArticles || currentAnalysisJob.value.processedArticles,
+              predictionsFound: message.data?.totalPredictions || currentAnalysisJob.value.predictionsFound,
+              completedAt: new Date().toISOString()
+            }
+            
+            // Load results
+            loadAnalysisResults(message.jobId)
+            
+            toast.add({
+              severity: 'success',
+              summary: 'Analysis Complete',
+              detail: `Found ${message.data?.totalPredictions || 0} predictions`,
+              life: 3000
+            })
+          } else if (message.type === 'job.failed') {
+            isAnalyzing.value = false
+            
+            // Stop polling
+            if (statusPollingInterval) {
+              clearInterval(statusPollingInterval)
+              statusPollingInterval = null
+            }
+            
+            currentAnalysisJob.value = {
+              ...currentAnalysisJob.value,
+              status: 'FAILED',
+              errorMessage: message.data?.errorMessage
+            }
+            
+            toast.add({
+              severity: 'error',
+              summary: 'Analysis Failed',
+              detail: message.data?.errorMessage || 'Analysis failed due to an error',
+              life: 5000
+            })
+          }
+        } else {
+          console.log('Ignoring WebSocket message - job ID mismatch or no current job')
+        }
+      } catch (error) {
+        console.error('Error in prediction analysis WebSocket message listener:', error)
+      }
+    })
+    
+    console.log('WebSocket listeners set up successfully')
+  } catch (error) {
+    console.error('Error setting up WebSocket listeners:', error)
+  }
+}
+
 const viewHistory = () => {
   router.push('/predictions/history')
+}
+
+const clearResultsFilters = () => {
+  resultsFilters.value = {
+    minRating: null,
+    minConfidence: 0,
+    searchText: ''
+  }
+}
+
+const startNewAnalysis = () => {
+  // Reset state for new analysis
+  currentAnalysisJob.value = null
+  analysisResults.value = []
+  selectedArticles.value = []
+  clearResultsFilters()
+}
+
+const viewDetailedResults = () => {
+  // Navigate to a detailed results page (if it exists)
+  router.push('/predictions/results')
 }
 
 // Initialize data and URL state
@@ -865,9 +1330,6 @@ onMounted(async () => {
     // Set up WebSocket listeners for real-time updates
     setupWebSocketListeners()
     
-    // Set up initial topbar actions
-    updateTopBarActions()
-    
   } catch (error) {
     console.error('Error initializing prediction analysis page:', error)
     toast.add({
@@ -885,9 +1347,6 @@ onUnmounted(() => {
     clearInterval(statusPollingInterval)
     statusPollingInterval = null
   }
-  
-  // Clear topbar actions when leaving the view
-  topBarStore.clearContextActions()
 })
 </script>
 
@@ -908,67 +1367,44 @@ onUnmounted(() => {
   margin-bottom: 1.5rem;
 }
 
-.steps-container {
-  background: var(--surface-card);
-  border: 1px solid var(--surface-border);
-  border-radius: var(--border-radius);
-  padding: 1.5rem;
-  
-  :deep(.p-steps) {
-    .p-steps-item {
-      .p-steps-number {
-        background: var(--surface-100);
-        color: var(--text-color-secondary);
-        border: 2px solid var(--surface-200);
-        width: 2.5rem;
-        height: 2.5rem;
-        font-size: 1rem;
+.article-selection-section,
+.analysis-progress-section,
+.results-section {
+  :deep(.p-panel) {
+    .p-panel-header {
+      background: var(--surface-card);
+      border: 1px solid var(--surface-border);
+      border-bottom: none;
+      padding: 1.25rem 1.5rem;
+      
+      .p-panel-title {
+        font-size: 1.1rem;
         font-weight: 600;
       }
-      
-      .p-steps-title {
-        color: var(--text-color-secondary);
-        font-weight: 500;
-        margin-top: 0.5rem;
-      }
-      
-      &.p-highlight {
-        .p-steps-number {
-          background: var(--primary-color);
-          color: var(--primary-color-text);
-          border-color: var(--primary-color);
-        }
-        
-        .p-steps-title {
-          color: var(--primary-color);
-          font-weight: 600;
-        }
-      }
+    }
+    
+    .p-panel-content {
+      background: var(--surface-card);
+      border: 1px solid var(--surface-border);
+      border-top: none;
+      padding: 1.5rem;
     }
   }
 }
 
-.step-content {
-  .step-panel {
-    :deep(.p-panel) {
-      .p-panel-header {
-        background: var(--surface-card);
-        border: 1px solid var(--surface-border);
-        border-bottom: none;
-        padding: 1.25rem 1.5rem;
-        
-        .p-panel-title {
-          font-size: 1.1rem;
-          font-weight: 600;
-        }
-      }
-      
-      .p-panel-content {
-        background: var(--surface-card);
-        border: 1px solid var(--surface-border);
-        border-top: none;
-        padding: 1.5rem;
-      }
+.filters-section {
+  background: var(--surface-50);
+  border: 1px solid var(--surface-200);
+  border-radius: var(--border-radius);
+  padding: 1rem;
+}
+
+.articles-table-container {
+  .articles-table {
+    :deep(.p-datatable-header) {
+      background: var(--surface-100);
+      border: 1px solid var(--surface-border);
+      padding: 1rem;
     }
   }
 }
@@ -980,26 +1416,50 @@ onUnmounted(() => {
   font-size: 0.95rem;
 }
 
-// Steps customization
-:deep(.custom-steps) {
-  .p-steps-item {
-    flex: 1;
-    
-    &:not(:last-child)::before {
-      content: '';
-      position: absolute;
-      top: 1.25rem;
-      left: calc(50% + 1.25rem);
-      width: calc(100% - 2.5rem);
-      height: 2px;
-      background: var(--surface-200);
-      z-index: 1;
-    }
-    
-    &.p-highlight:not(:last-child)::before {
-      background: var(--primary-color);
+.progress-content {
+  .progress-info {
+    .confidence-bar {
+      height: 0.5rem;
     }
   }
+}
+
+.results-summary {
+  .summary-item {
+    text-align: center;
+    padding: 1rem;
+    background: var(--surface-50);
+    border-radius: var(--border-radius);
+    border: 1px solid var(--surface-200);
+  }
+}
+
+.results-filters {
+  background: var(--surface-50);
+  border: 1px solid var(--surface-200);
+  border-radius: var(--border-radius);
+  padding: 1rem;
+}
+
+.results-table {
+  .prediction-text {
+    max-width: 300px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  
+  .confidence-score {
+    .confidence-bar {
+      height: 0.75rem;
+    }
+  }
+}
+
+.empty-state {
+  background: var(--surface-50);
+  border: 1px solid var(--surface-200);
+  border-radius: var(--border-radius);
 }
 
 // Panel customizations
@@ -1082,12 +1542,50 @@ onUnmounted(() => {
   }
 }
 
+// Results styling
+.results-summary {
+  font-size: 0.875rem;
+}
+
+.job-summary {
+  .summary-item {
+    text-align: center;
+    padding: 1rem;
+    background: var(--surface-50);
+    border-radius: var(--border-radius);
+    border: 1px solid var(--surface-200);
+  }
+}
+
+.empty-state {
+  background: var(--surface-50);
+  border: 1px solid var(--surface-200);
+  border-radius: var(--border-radius);
+  margin: 2rem 0;
+}
+
+.results-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
 // Dark theme adjustments
 :global([data-theme="dark"]) {
   .page-header,
   .steps-container {
     background-color: var(--surface-card);
     border-color: var(--surface-border);
+  }
+  
+  .job-summary .summary-item {
+    background: var(--surface-700);
+    border-color: var(--surface-600);
+  }
+  
+  .empty-state {
+    background: var(--surface-700);
+    border-color: var(--surface-600);
   }
 }
 </style>
